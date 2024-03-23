@@ -27,6 +27,7 @@
 		79CE33A62B964C7C008BF03D /* ListModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79CE33A52B964C7C008BF03D /* ListModel.swift */; };
 		79CE33AA2B9B30B5008BF03D /* ListUpdateElementsRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79CE33A92B9B30B5008BF03D /* ListUpdateElementsRequest.swift */; };
 		79CE33AC2B9B5F35008BF03D /* ListElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79CE33AB2B9B5F35008BF03D /* ListElement.swift */; };
+		79E5F6642BAE4C46000CE30E /* ListResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E5F6632BAE4C46000CE30E /* ListResponse.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -51,6 +52,7 @@
 		79CE33A52B964C7C008BF03D /* ListModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListModel.swift; sourceTree = "<group>"; };
 		79CE33A92B9B30B5008BF03D /* ListUpdateElementsRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListUpdateElementsRequest.swift; sourceTree = "<group>"; };
 		79CE33AB2B9B5F35008BF03D /* ListElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListElement.swift; sourceTree = "<group>"; };
+		79E5F6632BAE4C46000CE30E /* ListResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListResponse.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -127,6 +129,7 @@
 				79CE33AB2B9B5F35008BF03D /* ListElement.swift */,
 				79CE33A52B964C7C008BF03D /* ListModel.swift */,
 				79CE33A92B9B30B5008BF03D /* ListUpdateElementsRequest.swift */,
+				79E5F6632BAE4C46000CE30E /* ListResponse.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -201,6 +204,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				79E5F6642BAE4C46000CE30E /* ListResponse.swift in Sources */,
 				790AE2262B766176007B9E45 /* Persistence.swift in Sources */,
 				790AE2342B7663AC007B9E45 /* MainView.swift in Sources */,
 				79CE33AA2B9B30B5008BF03D /* ListUpdateElementsRequest.swift in Sources */,

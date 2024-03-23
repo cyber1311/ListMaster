@@ -29,7 +29,7 @@ struct MainScreenView: View {
                         Button(action: {
                             if newList != ""{
                                 do {
-                                    var listId = UUID()
+                                    let listId = UUID()
                                     addListToServer(listId: listId)
                                     let list = ListEntity(context: viewContext)
                                     list.id = listId
