@@ -155,6 +155,7 @@ struct MainScreenView: View {
                     }
                     
                 }else{
+                    showCommonErrorAlert = true
                     print("Some error")
                 }
             }

@@ -12,73 +12,45 @@ struct ProfileView: View {
     @State private var userEmail = ""
     @State private var userPassword = ""
     @State private var conditionIsMet = false
-    @State private var uiImage: UIImage?
-    @State private var imagePath: String?
     
     var body: some View {
-        if uiImage == nil{
-            Image(systemName: "person.circle.fill")
-                .resizable()
-                .aspectRatio(contentMode: .fill)
-                .frame(width: 200, height: 200)
-                .foregroundColor(.blue)
-        }else{
-            Image(uiImage: uiImage!)
-                .resizable()
-                .scaledToFit()
-                .frame(width: 200, height: 200)
-                .clipShape(Circle())
-        }
-        Button {
-                //
-            } label: {
-                Label("Редактировать", systemImage: "pencil")
-        }
-        .contextMenu {
-            Button {
-                    //
-                } label: {
-                    Label("Удалить", systemImage: "trash")
-                }
-                Button {
-                    //
-                } label: {
-                    Label("Выбрать", systemImage: "camera")
-                }
-        
-        }
+        Image(systemName: "person.circle.fill")
+            .resizable()
+            .aspectRatio(contentMode: .fill)
+            .frame(width: 200, height: 200)
+            .foregroundColor(.blue)
         .padding()
         
-        VStack(alignment: .leading) {
-            VStack(alignment: .leading){
-                Text("Имя:").bold()
-                Text(userName)
+        VStack{
+            HStack{
+                VStack(alignment: .leading){
+                    Text("Имя:").bold()
+                    Text(userName)
+                }
+                Spacer()
+                NavigationLink(destination: ChangeNameView()) {
+                    Image(systemName: "pencil")
+                    
+                }
             }
-            .contextMenu {
-                Button(action: {
-                    //
-                }) {
-                    Text("Изменить")
-                    Spacer()
+            .padding()
+            HStack{
+                VStack(alignment: .leading){
+                    Text("Электронная почта:").bold()
+                    Text(userEmail)
+                }
+                Spacer()
+                NavigationLink(destination: ChangeEmailView()) {
                     Image(systemName: "pencil")
                 }
             }
             .padding()
-            VStack(alignment: .leading){
-                Text("Электронная почта:").bold()
-                Text(userEmail)
-            }
-            .contextMenu {
-                Button(action: {
-                    //
-                }) {
-                    Text("Изменить")
-                    Spacer()
+            NavigationLink(destination: ChangePasswordView()) {
+                HStack {
+                    Text("Изменить пароль")
                     Image(systemName: "pencil")
                 }
             }
-            .padding()
-            
             
         }.fullScreenCover(isPresented: $conditionIsMet) {
             LoginView()
@@ -102,7 +74,7 @@ struct ProfileView: View {
         })
         
         .padding()
-        .navigationTitle("Личный кабинет")
+        .navigationTitle("Профиль")
         .onAppear{
             if let name = UserDefaults.standard.object(forKey: "UserName") as? String {
                 userName = name

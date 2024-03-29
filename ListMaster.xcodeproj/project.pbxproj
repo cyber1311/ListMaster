@@ -28,6 +28,13 @@
 		79CE33AA2B9B30B5008BF03D /* ListUpdateElementsRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79CE33A92B9B30B5008BF03D /* ListUpdateElementsRequest.swift */; };
 		79CE33AC2B9B5F35008BF03D /* ListElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79CE33AB2B9B5F35008BF03D /* ListElement.swift */; };
 		79E5F6642BAE4C46000CE30E /* ListResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E5F6632BAE4C46000CE30E /* ListResponse.swift */; };
+		79E5F6682BB186CA000CE30E /* ChangePasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E5F6672BB186CA000CE30E /* ChangePasswordView.swift */; };
+		79E5F66A2BB18A86000CE30E /* UserUpdatePasswordRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E5F6692BB18A86000CE30E /* UserUpdatePasswordRequest.swift */; };
+		79E5F66C2BB18E4D000CE30E /* ChangeNameView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E5F66B2BB18E4D000CE30E /* ChangeNameView.swift */; };
+		79E5F66E2BB18F15000CE30E /* UserUpdateNameRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E5F66D2BB18F15000CE30E /* UserUpdateNameRequest.swift */; };
+		79E5F6702BB18FB8000CE30E /* ChangeEmailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E5F66F2BB18FB8000CE30E /* ChangeEmailView.swift */; };
+		79E5F6722BB18FD0000CE30E /* UserUpdateEmailRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E5F6712BB18FD0000CE30E /* UserUpdateEmailRequest.swift */; };
+		79E5F6742BB62903000CE30E /* ListUpdateTitleRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E5F6732BB62903000CE30E /* ListUpdateTitleRequest.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,6 +60,13 @@
 		79CE33A92B9B30B5008BF03D /* ListUpdateElementsRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListUpdateElementsRequest.swift; sourceTree = "<group>"; };
 		79CE33AB2B9B5F35008BF03D /* ListElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListElement.swift; sourceTree = "<group>"; };
 		79E5F6632BAE4C46000CE30E /* ListResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListResponse.swift; sourceTree = "<group>"; };
+		79E5F6672BB186CA000CE30E /* ChangePasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangePasswordView.swift; sourceTree = "<group>"; };
+		79E5F6692BB18A86000CE30E /* UserUpdatePasswordRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserUpdatePasswordRequest.swift; sourceTree = "<group>"; };
+		79E5F66B2BB18E4D000CE30E /* ChangeNameView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeNameView.swift; sourceTree = "<group>"; };
+		79E5F66D2BB18F15000CE30E /* UserUpdateNameRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserUpdateNameRequest.swift; sourceTree = "<group>"; };
+		79E5F66F2BB18FB8000CE30E /* ChangeEmailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangeEmailView.swift; sourceTree = "<group>"; };
+		79E5F6712BB18FD0000CE30E /* UserUpdateEmailRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserUpdateEmailRequest.swift; sourceTree = "<group>"; };
+		79E5F6732BB62903000CE30E /* ListUpdateTitleRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListUpdateTitleRequest.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,6 +129,9 @@
 				790AE2332B7663AC007B9E45 /* MainView.swift */,
 				79BDE46C2BA3B1A10080329B /* ListDetailView.swift */,
 				79BDE46E2BA3B1F20080329B /* PointView.swift */,
+				79E5F6672BB186CA000CE30E /* ChangePasswordView.swift */,
+				79E5F66B2BB18E4D000CE30E /* ChangeNameView.swift */,
+				79E5F66F2BB18FB8000CE30E /* ChangeEmailView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -130,6 +147,10 @@
 				79CE33A52B964C7C008BF03D /* ListModel.swift */,
 				79CE33A92B9B30B5008BF03D /* ListUpdateElementsRequest.swift */,
 				79E5F6632BAE4C46000CE30E /* ListResponse.swift */,
+				79E5F6692BB18A86000CE30E /* UserUpdatePasswordRequest.swift */,
+				79E5F66D2BB18F15000CE30E /* UserUpdateNameRequest.swift */,
+				79E5F6712BB18FD0000CE30E /* UserUpdateEmailRequest.swift */,
+				79E5F6732BB62903000CE30E /* ListUpdateTitleRequest.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -205,18 +226,25 @@
 			buildActionMask = 2147483647;
 			files = (
 				79E5F6642BAE4C46000CE30E /* ListResponse.swift in Sources */,
+				79E5F6702BB18FB8000CE30E /* ChangeEmailView.swift in Sources */,
 				790AE2262B766176007B9E45 /* Persistence.swift in Sources */,
 				790AE2342B7663AC007B9E45 /* MainView.swift in Sources */,
+				79E5F66C2BB18E4D000CE30E /* ChangeNameView.swift in Sources */,
 				79CE33AA2B9B30B5008BF03D /* ListUpdateElementsRequest.swift in Sources */,
 				79BDE4712BA3B21B0080329B /* ImagePicker.swift in Sources */,
 				790AE21F2B766173007B9E45 /* ContentView.swift in Sources */,
+				79E5F66A2BB18A86000CE30E /* UserUpdatePasswordRequest.swift in Sources */,
+				79E5F6722BB18FD0000CE30E /* UserUpdateEmailRequest.swift in Sources */,
 				790AE23A2B7BC833007B9E45 /* LoginRequest.swift in Sources */,
+				79E5F6682BB186CA000CE30E /* ChangePasswordView.swift in Sources */,
 				790AE23E2B7BEF55007B9E45 /* ProfileView.swift in Sources */,
 				790AE2382B784D03007B9E45 /* RegistrationResponse.swift in Sources */,
 				790AE21D2B766173007B9E45 /* ListMasterApp.swift in Sources */,
 				790AE2362B76F985007B9E45 /* User.swift in Sources */,
+				79E5F66E2BB18F15000CE30E /* UserUpdateNameRequest.swift in Sources */,
 				79BDE46D2BA3B1A10080329B /* ListDetailView.swift in Sources */,
 				79BDE46F2BA3B1F20080329B /* PointView.swift in Sources */,
+				79E5F6742BB62903000CE30E /* ListUpdateTitleRequest.swift in Sources */,
 				790AE2322B766395007B9E45 /* RegistrationView.swift in Sources */,
 				790AE2302B76637A007B9E45 /* LoginView.swift in Sources */,
 				79CE33A62B964C7C008BF03D /* ListModel.swift in Sources */,

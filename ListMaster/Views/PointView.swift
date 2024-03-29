@@ -16,8 +16,8 @@ struct PointView: View {
     
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
-    @Binding var listElement: ListElementEntity
-    @Binding var listElements: [ListElementEntity]
+    @ObservedObject var listElement: ListElementEntity
+    @ObservedObject var viewModel: ListDetailViewModel
     @State private var listElementTitle: String = ""
     @State private var listElementDescription: String = ""
     @State private var listElementDeadline: Date = Date()
@@ -30,6 +30,8 @@ struct PointView: View {
     @State private var selectedImage: UIImage?
     @State private var isCompleted: Bool = false
   
+    
+    
     var body: some View {
         Form {
             Section(header: Text("Основная информация")) {
@@ -51,10 +53,22 @@ struct PointView: View {
                     })
                 }
                 
-                if (listElement.deadline == nil && isDatePickerOn == false)
-                || (listElement.deadline != nil && listElement.deadline!.compare(Date()) == .orderedAscending){
+                if listElement.deadline == nil && isDatePickerOn == false{
                     Button("Добавить дедлайн"){
                         isDatePickerOn = true
+                    }
+                }
+                if listElement.deadline != nil && listElement.deadline!.compare(Date()) == .orderedAscending{
+                    HStack{
+                        Text("Дедлайн: \(formatDate(date: listElement.deadline!))")
+                            .foregroundColor(.red)
+                        Spacer()
+                        Button(action: {
+                            listElement.deadline = nil
+                        }, label: {
+                            Image(systemName: "trash")
+                                .foregroundColor(.red)
+                        })
                     }
                 }
                 if isDatePickerOn || (listElement.deadline != nil && listElement.deadline!.compare(Date()) != .orderedAscending){
@@ -65,9 +79,9 @@ struct PointView: View {
                             Button(action: {
                                 isDatePickerOn = false
                                 listElement.deadline = nil
-                                
                             }, label: {
                                 Image(systemName: "trash")
+                                    .foregroundColor(.red)
                             })
                         }
                     
@@ -129,6 +143,9 @@ struct PointView: View {
                 Button {
                     if isCompleted == false{
                         isCompleted = true
+                        if listElement.deadline != nil{
+                            listElement.deadline = nil
+                        }
                     }else{
                         isCompleted = false
                     }
@@ -170,6 +187,12 @@ struct PointView: View {
                         print("Ошибка сохранения изменений: \(error)")
                     }
                 }
+                .alert(isPresented: $showInternetErrorAlert) {
+                    Alert(title: Text("Ошибка"), message: Text("Проверьте подключение к интернету"), dismissButton: .default(Text("OK")))
+                }
+                .alert(isPresented: $showCommonErrorAlert) {
+                    Alert(title: Text("Ошибка"), message: Text("Произошли технические неполадки"), dismissButton: .default(Text("OK")))
+                }
             }
         }
         .onAppear {
@@ -180,12 +203,7 @@ struct PointView: View {
             self.listElementCount = self.listElement.count
             self.isCompleted = self.listElement.isDone
         }
-        .alert(isPresented: $showInternetErrorAlert) {
-            Alert(title: Text("Ошибка"), message: Text("Проверьте подключение к интернету"), dismissButton: .default(Text("OK")))
-        }
-        .alert(isPresented: $showCommonErrorAlert) {
-            Alert(title: Text("Ошибка"), message: Text("Произошли технические неполадки"), dismissButton: .default(Text("OK")))
-        }
+        
         .navigationTitle(listElement.title!)
         
     }
@@ -196,10 +214,10 @@ struct PointView: View {
                 fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \ListElementEntity.createdAt, ascending: false)]
             fetchRequest.predicate = NSPredicate(format: "listId == %@", listElement.listId!.uuidString)
             
-            listElements = try viewContext.fetch(fetchRequest)
+            viewModel.listElements = try viewContext.fetch(fetchRequest)
             
             var elements = [ListElement]()
-            for element in listElements {
+            for element in viewModel.listElements {
                 elements.append(ListElement(id: element.id!, title: element.title!, descriptionText: element.descriptionText, imagePath: element.imagePath, deadline: element.deadline, count: Int(element.count), isDone: element.isDone, createdAt: element.createdAt!))
             }
             let jsonElements = try JSONEncoder().encode(elements)
@@ -244,6 +262,14 @@ struct PointView: View {
         } catch {
             print("Error fetching list elements: \(error)")
         }
+    }
+    
+    func formatDate(date: Date) -> String{
+        let formatter = DateFormatter()
+        formatter.dateStyle = .long
+        formatter.timeStyle = .short
+        formatter.locale = Locale(identifier: "ru_RU")
+        return formatter.string(from: date)
     }
     
     func loadImageFromPath(imagePath: String) -> UIImage? {
