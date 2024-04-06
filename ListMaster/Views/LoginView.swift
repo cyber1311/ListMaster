@@ -12,35 +12,34 @@ struct LoginView: View {
     @State private var userEmail = ""
     @State private var userPassword = ""
     @State private var conditionIsMet = false
-    @State private var showUserNotExistErrorAlert = false
-    @State private var showCommonErrorAlert = false
-    @State private var showInternetErrorAlert = false
+    @State private var showErrorAlert = false
+    @State private var alertMessage = ""
 
     var body: some View {
         VStack {
             TextField("Почта", text: $userEmail)
                 .padding()
                 .textFieldStyle(RoundedBorderTextFieldStyle())
-
+            
             SecureField("Пароль", text: $userPassword)
                 .padding()
                 .textFieldStyle(RoundedBorderTextFieldStyle())
+            
             Button(action:{
                 loginUserForServer()
-
+                
             }) {
                 Text("Войти")
-            }.fullScreenCover(isPresented: $conditionIsMet) {
-                MainScreenView()
-            }.padding()
-            .alert(isPresented: $showUserNotExistErrorAlert) {
-                Alert(title: Text("Ошибка"), message: Text("Неверная почта или пароль"), dismissButton: .default(Text("OK")))
-            }.alert(isPresented: $showCommonErrorAlert) {
-                Alert(title: Text("Ошибка"), message: Text("Произошли технические неполадки. Попробуйте еще раз ввести данные"), dismissButton: .default(Text("OK")))
-            }.alert(isPresented: $showInternetErrorAlert) {
-                Alert(title: Text("Ошибка"), message: Text("Проверьте подключение к интернету"), dismissButton: .default(Text("OK")))
             }
-
+            .fullScreenCover(isPresented: $conditionIsMet) {
+                MainScreenView()
+            }
+            .padding()
+            .background(Color.blue)
+            .foregroundColor(.white)
+            .cornerRadius(10)
+            .padding()
+            
             NavigationLink(destination: RegistrationView()) {
                 Text("Зарегистрироваться")
                     .foregroundColor(.blue)
@@ -48,7 +47,10 @@ struct LoginView: View {
         }
         .padding()
         .navigationTitle("Вход")
-    
+        .navigationBarBackButtonHidden(true)
+        .alert(isPresented: $showErrorAlert) {
+            Alert(title: Text("Ошибка"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
+        }
     }
     
     func loginUserForServer(){
@@ -60,8 +62,11 @@ struct LoginView: View {
 
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
+                DispatchQueue.main.async {
+                    self.alertMessage = "Проверьте подключение к интернету"
+                    self.showErrorAlert = true
+                    print("Error: \(error)")
+                }
             } else if let data = data {
                 do{
                     if let httpResponse = response as? HTTPURLResponse{
@@ -71,34 +76,40 @@ struct LoginView: View {
                             let dateFormatter = DateFormatter()
                             dateFormatter.dateFormat = "dd.MM.yyyy HH:mm:ss"
                             let expiresAtDate = dateFormatter.date(from: loginResponse.expiresAt)
-                            print("Token: \(loginResponse.token)")
-                            print("Expires At: \(loginResponse.expiresAt)")
-                            UserDefaults.standard.set(true, forKey: "isUserLoggedIn")
-                            UserDefaults.standard.set(loginResponse.id.uuidString, forKey: "UserId")
-                            UserDefaults.standard.set(loginResponse.name, forKey: "UserName")
-                            UserDefaults.standard.set(userPassword, forKey: "UserPassword")
-                            UserDefaults.standard.set(userEmail, forKey: "UserEmail")
-                            UserDefaults.standard.set(loginResponse.token, forKey: "Token")
-                            UserDefaults.standard.set(expiresAtDate, forKey: "TokenExpiresAt")
-                            conditionIsMet = true
-                            showUserNotExistErrorAlert = false
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
+                            DispatchQueue.main.async {
+                                UserDefaults.standard.set(true, forKey: "isUserLoggedIn")
+                                UserDefaults.standard.set(loginResponse.id.uuidString, forKey: "UserId")
+                                UserDefaults.standard.set(loginResponse.name, forKey: "UserName")
+                                UserDefaults.standard.set(userPassword, forKey: "UserPassword")
+                                UserDefaults.standard.set(userEmail, forKey: "UserEmail")
+                                UserDefaults.standard.set(loginResponse.token, forKey: "Token")
+                                UserDefaults.standard.set(expiresAtDate, forKey: "TokenExpiresAt")
+                                conditionIsMet = true
+                            }
                         } else if httpResponse.statusCode == 404{
-                            print("Такого пользователя не существует")
-                            showUserNotExistErrorAlert = true
+                            DispatchQueue.main.async {
+                                self.alertMessage = "Неверная почта или пароль"
+                                self.showErrorAlert = true
+                            }
                         } else {
-                            print("Bad status code")
-                            showCommonErrorAlert = true
+                            DispatchQueue.main.async {
+                                self.alertMessage = "Произошли технические неполадки. Попробуйте еще раз ввести данные"
+                                self.showErrorAlert = true
+                            }
                         }
                     }
                 }
                 catch{
-                    print("No data")
+                    DispatchQueue.main.async {
+                        self.alertMessage = "Произошли технические неполадки. Попробуйте еще раз ввести данные"
+                        self.showErrorAlert = true
+                    }
                 }
-                
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    self.alertMessage = "Произошли технические неполадки. Попробуйте еще раз ввести данные"
+                    self.showErrorAlert = true
+                }
             }
         }
         

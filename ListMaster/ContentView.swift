@@ -6,133 +6,47 @@
 //
 
 import SwiftUI
-import CoreData
 
 struct ContentView: View {
-    @Environment(\.managedObjectContext) private var viewContext
     @AppStorage("isUserLoggedIn") private var isUserLoggedIn = false
-    
-    @State private var showUserNotExistErrorAlert = false
-    @State private var showCommonErrorAlert = false
-    @State private var showInternetErrorAlert = false
+    @State private var showAlert = false
+    @State private var alertMessage = ""
+    @State var userInfo: UserInfo? = nil
     
     var body: some View {
-        NavigationView {
+        NavigationView{
             if isUserLoggedIn {
                 MainScreenView()
             } else {
                 LoginView()
             }
         }
-        .onAppear {
-            if UserDefaults.standard.bool(forKey: "isUserLoggedIn") {
-                download()
-                isUserLoggedIn = true
-            }
+        .alert(isPresented: $showAlert) {
+            Alert(title: Text("Ошибка"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
         }
-    }
-    
-    func download (){
-        let userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId") ?? "")
-        let token = UserDefaults.standard.string(forKey: "Token")
-        
-        let url = URL(string: "http://localhost:5211/lists/get_all_user_lists?user_id=\(userId!.uuidString.lowercased())")!
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "GET"
-        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue("Bearer " + (token ?? ""), forHTTPHeaderField: "Authorization")
-
-        let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
-            } else if let data = data {
-                do{
-                    if let httpResponse = response as? HTTPURLResponse{
-                        if httpResponse.statusCode == 200{
-                            deleteAllList()
-                            deleteAllListElements()
-                           
-                            let decoder = JSONDecoder()
-
-                            let lists = try decoder.decode([ListResponse].self, from: data)
-                            
-                            for list in lists {
-                                let listEntity = ListEntity(context: viewContext)
-                                listEntity.id = list.id
-                                listEntity.title = list.title
-                                try viewContext.save()
-                                
-                                if let elementsData = list.elements.data(using: .utf8) {
-                                    let elements = try decoder.decode([ListElement].self, from: elementsData)
-                                    
-                                    for element in elements {
-                                        let listElement = ListElementEntity(context: viewContext)
-                                        listElement.listId = list.id
-                                        listElement.id = element.Id
-                                        listElement.title = element.Title
-                                        listElement.descriptionText = element.DescriptionText
-                                        listElement.deadline = element.Deadline
-                                        listElement.createdAt = element.CreatedAt
-                                        listElement.count = Int32(element.Count)
-                                        listElement.imagePath = element.ImagePath
-                                        listElement.isDone = element.IsDone
-                                        
-                                        try viewContext.save()
-                                    }
-                                }
-                            }
-                            
-                            showUserNotExistErrorAlert = false
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
-                        } else if httpResponse.statusCode == 404{
-                            print("Такого пользователя не существует")
-                            showUserNotExistErrorAlert = true
-                        } else {
-                            print("Bad status code")
-                            showCommonErrorAlert = true
-                        }
+        .onAppear{
+            if Reachability.isConnectedToNetwork() {
+                if isUserLoggedIn{
+                    if let name = UserDefaults.standard.object(forKey: "UserName") as? String,
+                        let email = UserDefaults.standard.object(forKey: "UserEmail") as? String,
+                        let password = UserDefaults.standard.object(forKey: "UserPassword") as? String,
+                        let token = UserDefaults.standard.object(forKey: "Token") as? String,
+                        let id = UserDefaults.standard.object(forKey: "UserId") as? String,
+                        let token_expires_at = UserDefaults.standard.object(forKey: "TokenExpiresAt") as? Date {
+                        userInfo = UserInfo(user_id: UUID(uuidString: id)!, user_email: email, user_name: name, user_password: password, token: token, token_expires_at: token_expires_at)
+                    }
+                    else{
+                        showAlert = true
+                        alertMessage = "Произошла ошибка"
                     }
                 }
-                catch{
-                    print("No data")
-                }
-                
-            }else{
-                print("Some error")
+            } else {
+                showAlert = true
+                alertMessage = "Отсутствует подключение к интернету"
             }
         }
         
-        task.resume()
     }
     
-    func deleteAllList() {
-        let fetchRequest: NSFetchRequest<ListEntity> = ListEntity.fetchRequest()
-            
-        do {
-            let lists = try viewContext.fetch(fetchRequest)
-            for list in lists {
-                viewContext.delete(list)
-            }
-            try viewContext.save()
-        } catch {
-            print("Ошибка при удалении: \(error)")
-        }
-    }
-    
-    func deleteAllListElements() {
-        let fetchRequest: NSFetchRequest<ListElementEntity> = ListElementEntity.fetchRequest()
-            
-        do {
-            let lists = try viewContext.fetch(fetchRequest)
-            for list in lists {
-                viewContext.delete(list)
-            }
-            try viewContext.save()
-        } catch {
-            print("Ошибка при удалении: \(error)")
-        }
-    }
+
 }

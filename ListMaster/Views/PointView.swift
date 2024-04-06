@@ -7,25 +7,25 @@
 
 import Foundation
 import SwiftUI
-import CoreData
 import UserNotifications
+import SDWebImageSwiftUI
 
 struct PointView: View {
     @State private var showInternetErrorAlert = false
     @State private var showCommonErrorAlert = false
     
-    @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
-    @ObservedObject var listElement: ListElementEntity
-    @ObservedObject var viewModel: ListDetailViewModel
+    @Binding var listElement: ListElement
+    @ObservedObject var viewModel: ListModel
     @State private var listElementTitle: String = ""
     @State private var listElementDescription: String = ""
+    @State private var listElementReminder: Date = Date()
     @State private var listElementDeadline: Date = Date()
     @State private var listElementImagePath: String? = nil
     @State private var listElementCount: Int32 = 0
-    @Binding var listTitle: String
     
-    @State private var isDatePickerOn: Bool = false
+    @State private var isDeadlinePickerOn: Bool = false
+    @State private var isReminderPickerOn: Bool = false
     @State private var isImagePickerOn: Bool = false
     @State private var selectedImage: UIImage?
     @State private var isCompleted: Bool = false
@@ -36,9 +36,9 @@ struct PointView: View {
         Form {
             Section(header: Text("Основная информация")) {
                 TextField("Название", text: $listElementTitle)
-                TextField("Описание", text: $listElementDescription)
+                TextField("Описание:", text: $listElementDescription)
                 
-                if listElement.count == 0, listElementCount == 0{
+                if listElement.Count == 0, listElementCount == 0{
                     Button("Добавить количество"){
                         listElementCount = 1
                     }
@@ -53,41 +53,65 @@ struct PointView: View {
                     })
                 }
                 
-                if listElement.deadline == nil && isDatePickerOn == false{
-                    Button("Добавить дедлайн"){
-                        isDatePickerOn = true
+                if (listElement.Reminder == nil && isReminderPickerOn == false) || (listElement.Reminder != nil && listElement.Reminder!.compare(Date()) == .orderedAscending){
+                    Button("Добавить напоминание"){
+                        isReminderPickerOn = true
                     }
                 }
-                if listElement.deadline != nil && listElement.deadline!.compare(Date()) == .orderedAscending{
-                    HStack{
-                        Text("Дедлайн: \(formatDate(date: listElement.deadline!))")
-                            .foregroundColor(.red)
-                        Spacer()
+                if isReminderPickerOn || (listElement.Reminder != nil && listElement.Reminder!.compare(Date()) != .orderedAscending){
+                    VStack(alignment: .trailing){
+                        DatePicker("Напомнить:", selection: $listElementReminder, in: Date()...)
+                       
                         Button(action: {
-                            listElement.deadline = nil
+                            isReminderPickerOn = false
+                            listElement.Reminder = nil
                         }, label: {
-                            Image(systemName: "trash")
-                                .foregroundColor(.red)
+                            HStack{
+                                Text("Удалить")
+                                Image(systemName: "trash")
+                            }
                         })
                     }
                 }
-                if isDatePickerOn || (listElement.deadline != nil && listElement.deadline!.compare(Date()) != .orderedAscending){
-                    
-                        HStack{
-                            DatePicker("Дедлайн:", selection: $listElementDeadline, in: Date()...)
-                            Spacer()
-                            Button(action: {
-                                isDatePickerOn = false
-                                listElement.deadline = nil
-                            }, label: {
+                
+                
+                if listElement.Deadline == nil && isDeadlinePickerOn == false{
+                    Button("Добавить дедлайн"){
+                        isDeadlinePickerOn = true
+                    }
+                }
+                if listElement.Deadline != nil && listElement.Deadline!.compare(Date()) == .orderedAscending{
+                    VStack(alignment: .trailing){
+                        Text("Дедлайн: \(formatDate(date: listElement.Deadline!))")
+                            .foregroundColor(.red)
+                        Button(action: {
+                            listElement.Deadline = nil
+                        }, label: {
+                            HStack{
+                                Text("Удалить").foregroundColor(.red)
                                 Image(systemName: "trash")
                                     .foregroundColor(.red)
+                            }
+                        })
+                    }
+                }
+                if isDeadlinePickerOn || (listElement.Deadline != nil && listElement.Deadline!.compare(Date()) != .orderedAscending){
+                    VStack(alignment: .trailing){
+                            DatePicker("Дедлайн:", selection: $listElementDeadline, in: Date()...)
+                            Button(action: {
+                                isDeadlinePickerOn = false
+                                listElement.Deadline = nil
+                            }, label: {
+                                HStack{
+                                    Text("Удалить")
+                                    Image(systemName: "trash")
+                                }
                             })
-                        }
+                    }
                     
                 }
             
-                if (selectedImage == nil && listElement.imagePath == nil){
+                if selectedImage == nil && listElement.ImagePath == nil{
                     Button("Добавить изображение"){
                         isImagePickerOn = true
                     }
@@ -95,25 +119,26 @@ struct PointView: View {
                         ImagePicker(isPresented: $isImagePickerOn, image: $selectedImage, imagePath: $listElementImagePath)
                     }
                 }else{
-                    if listElement.imagePath != nil, let uiImage = loadImageFromPath(imagePath: listElement.imagePath!){
+                    if listElement.ImagePath != nil{
                         HStack(alignment: .center, content: {
-                            Image(uiImage: uiImage)
+                            WebImage(url: URL(string: "http://localhost:5211/images/download?image_name=\(listElement.ImagePath!)"))
                                 .resizable()
                                 .frame(width: 200, height: 200)
                                 .clipShape(Circle())
+                            Spacer()
                             VStack{
                                 Spacer()
                                 Spacer()
                                 Button(action: {
+                                    deleteImage(filename: listElement.ImagePath!)
                                     listElementImagePath = nil
                                     selectedImage = nil
-                                    listElement.imagePath = nil
-                                    
+                                    listElement.ImagePath = nil
                                 }, label: {
                                     Image(systemName: "trash")
                                 })
                             }
-                        }).padding()
+                        })
                         
                     }else if selectedImage != nil{
                         HStack(alignment: .center, content: {
@@ -121,110 +146,128 @@ struct PointView: View {
                                 .resizable()
                                 .frame(width: 200, height: 200)
                                 .clipShape(Circle())
+                            Spacer()
                             VStack{
                                 Spacer()
                                 Spacer()
                                 Button(action: {
                                     listElementImagePath = nil
                                     selectedImage = nil
-                                    listElement.imagePath = nil
+                                    listElement.ImagePath = nil
                                 }, label: {
                                     Image(systemName: "trash")
                                 })
                             }
-                        }).padding()
+                        })
                     }
                 }
             }
             
-            HStack(alignment: .center, content:
-                    {
-                
-                Button {
-                    if isCompleted == false{
-                        isCompleted = true
-                        if listElement.deadline != nil{
-                            listElement.deadline = nil
+            
+            Section{
+                HStack(alignment: .center, content:
+                        {
+                    Button {
+                        if isCompleted == false{
+                            isCompleted = true
+                            if listElement.Deadline != nil{
+                                listElement.Deadline = nil
+                            }
+                        }else{
+                            isCompleted = false
                         }
-                    }else{
-                        isCompleted = false
+                    } label: {
+                        Image(systemName: isCompleted ? "checkmark.square" : "square")
+                            .imageScale(.large)
+                            .foregroundColor(isCompleted ? .green : .black)
                     }
-                } label: {
-                    Image(systemName: isCompleted ? "checkmark.square" : "square")
-                        .imageScale(.large)
-                        .foregroundColor(isCompleted ? .green : .black)
-                }
-                
-                if isCompleted == true{
-                    Text("Выполнено").foregroundColor(.green)
-                }else{
-                    Text("Не выполнено")
-                }
-            })
-            .padding()
+                    
+                    if isCompleted == true{
+                        Text("Выполнено").foregroundColor(.green).bold()
+                    }else{
+                        Text("Не выполнено")
+                    }
+                })
+            }
 
             Section {
-                Button("Сохранить") {
-                    listElement.title = listElementTitle
-                    listElement.descriptionText = listElementDescription
-                    if isDatePickerOn{
-                        listElement.deadline = listElementDeadline
-                    }
-                    if isDatePickerOn == false && listElement.deadline != nil && listElementDeadline.compare(listElement.deadline!) == .orderedDescending{
-                        listElement.deadline = listElementDeadline
-                    }
-                    listElement.imagePath = listElementImagePath
-                    listElement.count = listElementCount
-                    listElement.isDone = isCompleted
-                    do {
-                        try viewContext.save()
-                        if let deadline = listElement.deadline {
-                            scheduleNotification(for: deadline, withTitle: "Напоминание", andBody: "Дедлайн по задаче '\(listElement.title ?? "")'")
+                HStack{
+                    Spacer()
+                    Button(action: {
+                        listElement.Title = listElementTitle
+                        if listElementDescription != ""{
+                            listElement.DescriptionText = listElementDescription
+                        }else{
+                            listElement.DescriptionText = nil
+                        }
+                        if isDeadlinePickerOn {
+                            listElement.Deadline = listElementDeadline
+                        }
+                        if isDeadlinePickerOn == false && listElement.Deadline != nil && listElementDeadline.compare(listElement.Deadline!) == .orderedDescending {
+                            listElement.Deadline = listElementDeadline
+                        }
+                        
+                        if isReminderPickerOn {
+                            listElement.Reminder = listElementReminder
+                        }
+                        if isReminderPickerOn == false && listElement.Reminder != nil && listElementReminder.compare(listElement.Reminder!) == .orderedDescending {
+                            listElement.Reminder = listElementReminder
+                        }
+                        
+                        listElement.ImagePath = listElementImagePath
+                        listElement.Count = Int(listElementCount)
+                        listElement.IsDone = isCompleted
+                        
+                        if let deadline = listElement.Deadline {
+                            scheduleNotification(for: deadline, withTitle: "Дедлайн", andBody: "Задача: '\(listElement.Title)'")
+                        }
+                        if let reminder = listElement.Reminder {
+                            scheduleNotification(for: reminder, withTitle: "Напоминание", andBody: "Задача: '\(listElement.Title)'")
                         }
                         updateElementsForServer()
+                        if selectedImage != nil &&  listElement.ImagePath != nil{
+                            uploadImage(image: selectedImage!, filename: listElement.ImagePath!)
+                        }
                         self.presentationMode.wrappedValue.dismiss()
-                    } catch {
-                        print("Ошибка сохранения изменений: \(error)")
+                    }) {
+                        Text("Сохранить")
                     }
-                }
-                .alert(isPresented: $showInternetErrorAlert) {
-                    Alert(title: Text("Ошибка"), message: Text("Проверьте подключение к интернету"), dismissButton: .default(Text("OK")))
-                }
-                .alert(isPresented: $showCommonErrorAlert) {
-                    Alert(title: Text("Ошибка"), message: Text("Произошли технические неполадки"), dismissButton: .default(Text("OK")))
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    Spacer()
                 }
             }
         }
         .onAppear {
-            self.listElementTitle = self.listElement.title ?? ""
-            self.listElementDescription = self.listElement.descriptionText ?? ""
-            self.listElementDeadline = self.listElement.deadline ?? Date()
-            self.listElementImagePath = self.listElement.imagePath
-            self.listElementCount = self.listElement.count
-            self.isCompleted = self.listElement.isDone
+            self.listElementTitle = self.listElement.Title 
+            self.listElementDescription = self.listElement.DescriptionText ?? ""
+            self.listElementDeadline = self.listElement.Deadline ?? Date()
+            self.listElementReminder = self.listElement.Reminder ?? Date()
+            self.listElementImagePath = self.listElement.ImagePath
+            self.listElementCount = Int32(self.listElement.Count)
+            self.isCompleted = self.listElement.IsDone
+        }
+        .alert(isPresented: $showInternetErrorAlert) {
+            Alert(title: Text("Ошибка"), message: Text("Проверьте подключение к интернету"), dismissButton: .default(Text("OK")))
         }
         
-        .navigationTitle(listElement.title!)
+        .alert(isPresented: $showCommonErrorAlert) {
+            Alert(title: Text("Ошибка"), message: Text("Произошли технические неполадки"), dismissButton: .default(Text("OK")))
+        }
+        
+        .navigationTitle(listElement.Title)
         
     }
     
     func updateElementsForServer(){
         do {
-            let fetchRequest: NSFetchRequest<ListElementEntity> = ListElementEntity.fetchRequest()
-                fetchRequest.sortDescriptors = [NSSortDescriptor(keyPath: \ListElementEntity.createdAt, ascending: false)]
-            fetchRequest.predicate = NSPredicate(format: "listId == %@", listElement.listId!.uuidString)
-            
-            viewModel.listElements = try viewContext.fetch(fetchRequest)
-            
-            var elements = [ListElement]()
-            for element in viewModel.listElements {
-                elements.append(ListElement(id: element.id!, title: element.title!, descriptionText: element.descriptionText, imagePath: element.imagePath, deadline: element.deadline, count: Int(element.count), isDone: element.isDone, createdAt: element.createdAt!))
-            }
-            let jsonElements = try JSONEncoder().encode(elements)
+            let jsonElements = try JSONEncoder().encode(viewModel.Elements)
             let stringElements = String(data: jsonElements, encoding: .utf8)
             let userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId") ?? "")
             
-            let listUpdateElementsRequest = ListUpdateElementsRequest(userId: userId!, id: listElement.listId!, elements: stringElements!)
+            let listUpdateElementsRequest = ListUpdateElementsRequest(userId: userId!, id: viewModel.Id, elements: stringElements!)
             
             let token = UserDefaults.standard.string(forKey: "Token")
             
@@ -272,18 +315,6 @@ struct PointView: View {
         return formatter.string(from: date)
     }
     
-    func loadImageFromPath(imagePath: String) -> UIImage? {
-            let fileManager = FileManager.default
-            if fileManager.fileExists(atPath: imagePath) {
-                if let imageData = fileManager.contents(atPath: imagePath) {
-                    return UIImage(data: imageData)
-                }
-            }else{
-                listElement.imagePath = nil
-            }
-            return nil
-    }
-    
     func scheduleNotification(for deadline: Date, withTitle title: String, andBody body: String) {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             if settings.authorizationStatus == .authorized{
@@ -311,13 +342,87 @@ struct PointView: View {
     }
     
     func requestNotificationAuthorization() {
-            UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-                if granted {
-                    print("Разрешение на уведомления получено")
-                } else {
-                    print("Разрешение на уведомления отклонено или произошла ошибка: \(error?.localizedDescription ?? "")")
-                }
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+            if granted {
+                print("Разрешение на уведомления получено")
+            } else {
+                print("Разрешение на уведомления отклонено или произошла ошибка: \(error?.localizedDescription ?? "")")
             }
         }
+    }
+    
+    func uploadImage(image: UIImage, filename: String) {
+        let url = URL(string: "http://localhost:5211/images/upload")!
+        
+        let boundary = UUID().uuidString
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        
+        var body = Data()
+        body.append(Data("--\(boundary)\r\n".utf8))
+        body.append(Data("Content-Disposition: form-data; name=\"image\"; filename=\"\(filename)\"\r\n".utf8))
+        body.append(Data("Content-Type: image/jpeg\r\n\r\n".utf8))
+        
+        if let imageData = image.jpegData(compressionQuality: 1.0) {
+            body.append(imageData)
+        }
+        
+        body.append(Data("\r\n".utf8))
+        body.append(Data("--\(boundary)--\r\n".utf8))
+        
+        request.httpBody = body
+        
+        let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
+            if let error = error {
+                showInternetErrorAlert = true
+                print("Error: \(error)")
+            } else if data != nil {
+                if let httpResponse = response as? HTTPURLResponse{
+                    if httpResponse.statusCode == 200{
+                        showCommonErrorAlert = false
+                        showInternetErrorAlert = false
+                    } else {
+                        print("Some error")
+                        showCommonErrorAlert = true
+                    }
+                }
+            }else{
+                print("Some error")
+            }
+        }
+        
+        task.resume()
+    }
 
+    
+    func deleteImage(filename: String) {
+        let url = URL(string: "http://localhost:5211/images/delete?image_name=\(filename)")!
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "DELETE"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
+            if let error = error {
+                showInternetErrorAlert = true
+                print("Error: \(error)")
+            } else if data != nil {
+                if let httpResponse = response as? HTTPURLResponse{
+                    if httpResponse.statusCode == 200{
+                        showCommonErrorAlert = false
+                        showInternetErrorAlert = false
+                    } else {
+                        print("Some error")
+                        showCommonErrorAlert = true
+                    }
+                }
+            }else{
+                print("Some error")
+            }
+        }
+        
+        task.resume()
+    }
 }

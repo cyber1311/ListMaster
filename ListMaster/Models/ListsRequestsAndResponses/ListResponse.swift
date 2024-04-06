@@ -11,4 +11,6 @@ struct ListResponse: Codable{
     public var id: UUID
     public var title: String
     public var elements: String
+    public var isShared: Bool
+    public var ownerId: UUID
 }

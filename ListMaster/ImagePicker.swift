@@ -49,7 +49,7 @@ struct ImagePicker: UIViewControllerRepresentable {
 
         do {
             try data.write(to: fileURL)
-            imagePath = fileURL.path
+            imagePath = filename
         } catch {
             print("Error saving image: \(error)")
         }

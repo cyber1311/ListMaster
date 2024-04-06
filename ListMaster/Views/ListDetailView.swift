@@ -7,40 +7,55 @@
 
 import Foundation
 import SwiftUI
-import CoreData
+import SDWebImageSwiftUI
 
 
 struct ListDetailView: View {
-    @Environment(\.managedObjectContext) private var viewContext
     @State private var newListElement = ""
     @State private var newListTitle = ""
         
     @State private var showInternetErrorAlert = false
     @State private var showCommonErrorAlert = false
     
-    @State private var hideDone = false
-        
-    @State var listId: UUID
-    @State var listTitle: String
+    @AppStorage("hideDone") private var hideDone: Bool = false
 
-    @ObservedObject var viewModel: ListDetailViewModel = ListDetailViewModel()
-
+    @ObservedObject var viewModel: ListModel
+    @State private var userId: UUID = UUID()
+    @State private var token: String = ""
     @Environment(\.editMode) var editMode
     
     var body: some View {
+        
         List {
+            if viewModel.IsShared{
+                if(viewModel.OwnerId != userId){
+                    HStack{
+                        NavigationLink(destination: ShareManagementView(listModel: viewModel)) {
+                            Text("Общий доступ").foregroundStyle(.green).bold()
+                        }
+                        Spacer()
+                    }
+                }else{
+                    HStack{
+                        NavigationLink(destination: ShareManagementView(listModel: viewModel)) {
+                            HStack {
+                                Text("Управлять доступом").foregroundStyle(.green).bold()
+                            }
+                        }
+                        Spacer()
+                    }
+                }
+            }
+            
             if editMode?.wrappedValue == .active{
-                Toggle("Скрыть выполненное", isOn: $hideDone)
                 Section(header: Text("Изменить название списка")) {
                     HStack {
-                        TextField(listTitle, text: $newListTitle)
+                        TextField(viewModel.Title, text: $newListTitle)
                         Button(action: {
                             if newListTitle != ""{
-                                listTitle = newListTitle
-                                updateListTitle(newTitle: listTitle)
+                                viewModel.Title = newListTitle
                                 updateListTitleForServer()
                                 newListTitle = ""
-                                loadListElements()
                             }
                             
                         }, label: {
@@ -50,25 +65,18 @@ struct ListDetailView: View {
                 }
             }
             
+            Toggle("Скрыть выполненное", isOn: $hideDone)
+            
             Section(header: Text("Новый пункт")) {
                 HStack {
                     TextField("Название", text: $newListElement)
                     Button(action: {
                         if newListElement != ""{
-                            let listElement = ListElementEntity(context: viewContext)
-                            listElement.listId = listId
-                            listElement.id = UUID()
-                            listElement.title = self.newListElement
-                            listElement.createdAt = Date()
-                            do {
-                                try viewContext.save()
-                                loadListElements()
-                                updateForServer()
-                            } catch {
-                                print(error)
-                            }
+                            let listElem = ListElement(id: UUID(), title: self.newListElement, descriptionText: nil, imagePath: nil, reminder: nil, deadline: nil, count: 0, isDone: false, createdAt: Date())
+                            viewModel.Elements.append(listElem)
                             self.newListElement = ""
-                            
+                            updateForServer()
+                            viewModel.sort()
                         }
                         
                     }, label: {
@@ -82,12 +90,12 @@ struct ListDetailView: View {
                     }
                 }
             }
-            Section(header: Text("")) {
-                ForEach(viewModel.listElements) { element in
-                    if hideDone == false || (hideDone == true && element.isDone == false){
+            Section {
+                ForEach($viewModel.Elements, id: \.Id) { element in
+                    if hideDone == false || (hideDone == true && element.wrappedValue.IsDone == false){
                         HStack{
-                            if let imagePath = element.imagePath, let uiImage = loadImageFromPath(imagePath: imagePath) {
-                                Image(uiImage: uiImage)
+                            if element.wrappedValue.ImagePath != nil{
+                                WebImage(url: URL(string: "http://localhost:5211/images/download?image_name=\(element.wrappedValue.ImagePath!)"))
                                     .resizable()
                                     .frame(width: 50, height: 50)
                                     .clipShape(Circle())
@@ -96,16 +104,16 @@ struct ListDetailView: View {
                                     .fill(Color.blue)
                                     .frame(width: 50, height: 50)
                             }
-                            NavigationLink(destination: PointView(listElement: element, viewModel: viewModel, listTitle: $listTitle)) {
-                                if element.isDone == true{
-                                    Text(element.title!)
+                            NavigationLink(destination: PointView(listElement: element, viewModel: viewModel)) {
+                                if element.wrappedValue.IsDone == true{
+                                    Text(element.wrappedValue.Title)
                                         .foregroundColor(.green)
                                         .strikethrough()
-                                }else if element.deadline != nil && element.deadline!.compare(Date()) == .orderedAscending{
-                                    Text(element.title!)
+                                }else if element.wrappedValue.Deadline != nil && element.wrappedValue.Deadline!.compare(Date()) == .orderedAscending{
+                                    Text(element.wrappedValue.Title)
                                         .foregroundColor(.red)
                                 }else{
-                                    Text(element.title!)
+                                    Text(element.wrappedValue.Title)
                                 }
                             }
                         }
@@ -114,70 +122,46 @@ struct ListDetailView: View {
                 .onDelete(perform: removeListElement)
             }
         }
-        
-        .onAppear {
-            loadListElements()
-            self.listId = listId
-            self.listTitle = listTitle
-
-        }
         .toolbar {
             ToolbarItem {
                 EditButton()
             }
                         
         }
-        .navigationTitle(listTitle)
-        
-        
-    }
-    
-    func loadImageFromPath(imagePath: String) -> UIImage? {
-            let fileManager = FileManager.default
-            if fileManager.fileExists(atPath: imagePath) {
-                if let imageData = fileManager.contents(atPath: imagePath) {
-                    return UIImage(data: imageData)
-                }
-            }
-            return nil
-    }
-    
-
-    func removeListElement(at offsets: IndexSet) {
-        for index in offsets {
-            let man = viewModel.listElements[index]
-            viewContext.delete(man)
-            do {
-                try self.viewContext.save()
-            } catch {
-                print(error)
-            }
+        .onAppear{
+            userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId")!)!
+            token = UserDefaults.standard.string(forKey: "Token")!
+            viewModel.reload()
         }
-        loadListElements()
+        .onChange(of: hideDone) { newValue in
+            UserDefaults.standard.set(newValue, forKey: "hideDone")
+        }
+        .navigationTitle(viewModel.Title)
+        .refreshable{
+            getList()
+        }
+    }
+    
+    func removeListElement(at offsets: IndexSet) {
+        viewModel.Elements.remove(atOffsets: offsets)
+        
         updateForServer()
     }
     
     func updateForServer(){
         do {
-            var elements = [ListElement]()
-            for element in viewModel.listElements {
-                elements.append(ListElement(id: element.id!, title: element.title!, descriptionText: element.descriptionText, imagePath: element.imagePath, deadline: element.deadline, count: Int(element.count), isDone: element.isDone, createdAt: element.createdAt!))
-            }
-            let jsonElements = try JSONEncoder().encode(elements)
+            
+            let jsonElements = try JSONEncoder().encode(viewModel.Elements)
             let stringElements = String(data: jsonElements, encoding: .utf8)
-            let userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId") ?? "")
-            
-            
-            let listUpdateElementsRequest = ListUpdateElementsRequest(userId: userId!, id: listId, elements: stringElements!)
-            
-            let token = UserDefaults.standard.string(forKey: "Token")
-            
+
+            let listUpdateElementsRequest = ListUpdateElementsRequest(userId: userId, id: viewModel.Id, elements: stringElements!)
+
             let url = URL(string: "http://localhost:5211/lists/update_list_elements")!
 
             var request = URLRequest(url: url)
             request.httpMethod = "PUT"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.addValue("Bearer " + (token ?? ""), forHTTPHeaderField: "Authorization")
+            request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
             
             let jsonData = try JSONEncoder().encode(listUpdateElementsRequest)
             request.httpBody = jsonData
@@ -212,18 +196,15 @@ struct ListDetailView: View {
     
     func updateListTitleForServer(){
         do{
-            let userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId") ?? "")
-            
-            let listUpdateTitleRequest = ListUpdateTitleRequest(userId: userId!, id: listId, title: listTitle)
-            
-            let token = UserDefaults.standard.string(forKey: "Token")
+ 
+            let listUpdateTitleRequest = ListUpdateTitleRequest(userId: userId, id: viewModel.Id, title: viewModel.Title)
             
             let url = URL(string: "http://localhost:5211/lists/update_list_title")!
 
             var request = URLRequest(url: url)
             request.httpMethod = "PUT"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.addValue("Bearer " + (token ?? ""), forHTTPHeaderField: "Authorization")
+            request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
             
             let jsonData = try JSONEncoder().encode(listUpdateTitleRequest)
             request.httpBody = jsonData
@@ -254,42 +235,59 @@ struct ListDetailView: View {
         }
     }
     
-    func loadListElements() {
-        let fetchRequest: NSFetchRequest<ListElementEntity> = ListElementEntity.fetchRequest()
+    func getList (){
+        let url = URL(string: "http://localhost:5211/lists/get_list?user_id=\(userId.uuidString.lowercased())&list_id=\(viewModel.Id.uuidString.lowercased())")!
 
-        let sortByIsDone = NSSortDescriptor(keyPath: \ListElementEntity.isDone, ascending: true)
-        let sortByCreatedAt = NSSortDescriptor(keyPath: \ListElementEntity.createdAt, ascending: false)
-        
-        fetchRequest.sortDescriptors = [sortByIsDone, sortByCreatedAt]
-        
-        fetchRequest.predicate = NSPredicate(format: "listId == %@", listId.uuidString)
-        do {
-            self.viewModel.listElements = try viewContext.fetch(fetchRequest)
-        } catch {
-            print("Error fetching list elements: \(error)")
-        }
-    }
-    
-    func updateListTitle(newTitle: String) {
-        let fetchRequest: NSFetchRequest<ListEntity> = ListEntity.fetchRequest()
-        fetchRequest.predicate = NSPredicate(format: "id == %@", listId.uuidString)
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.addValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
 
-        do {
-            let fetchedResults = try viewContext.fetch(fetchRequest)
-            
-            if let listEntity = fetchedResults.first {
-                listEntity.title = newTitle
-                try viewContext.save()
+        let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
+            if let error = error {
+                showInternetErrorAlert = true
+                print("Error: \(error)")
+            } else if let data = data {
+                do{
+                    if let httpResponse = response as? HTTPURLResponse{
+                        if httpResponse.statusCode == 200{
+                            let decoder = JSONDecoder()
+
+                            let list = try decoder.decode(ListResponse.self, from: data)
+                            
+                            if let elementsData = list.elements.data(using: .utf8) {
+                                let elements = try decoder.decode([ListElement].self, from: elementsData)
+                                DispatchQueue.main.async {
+                                    self.viewModel.Id = list.id
+                                    self.viewModel.Title = list.title
+                                    self.viewModel.Elements = elements
+                                    self.viewModel.IsShared = list.isShared
+                                    self.viewModel.OwnerId = list.ownerId
+                                    viewModel.reload()
+                                }
+                            }
+                            
+                            //showUserNotExistErrorAlert = false
+                            showCommonErrorAlert = false
+                            showInternetErrorAlert = false
+//                        } else if httpResponse.statusCode == 404{
+//                            print("Такого пользователя не существует")
+//                            showUserNotExistErrorAlert = true
+                        } else {
+                            print("Bad status code")
+                            showCommonErrorAlert = true
+                        }
+                    }
+                }
+                catch{
+                    print("No data")
+                }
+                
+            }else{
+                print("Some error")
             }
-        } catch {
-            print("Fetch failed: \(error)")
         }
+        
+        task.resume()
     }
-    
-    
-}
-
-
-class ListDetailViewModel: ObservableObject {
-    @Published var listElements: [ListElementEntity] = []
 }

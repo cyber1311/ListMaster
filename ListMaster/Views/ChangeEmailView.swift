@@ -12,7 +12,6 @@ struct ChangeEmailView: View {
     @State private var showInternetErrorAlert = false
     @State private var showCommonErrorAlert = false
     
-    @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
     @State private var newEmail: String = ""
   
@@ -24,13 +23,19 @@ struct ChangeEmailView: View {
             .padding()
             
             Section {
-                Button("Сохранить") {
-                    updateEmailForServer()
-                    if showInternetErrorAlert == false && showCommonErrorAlert == false{
+                HStack{
+                    Spacer()
+                    Button("Сохранить") {
+                        updateEmailForServer()
                         UserDefaults.standard.set(newEmail, forKey: "UserEmail")
                         self.presentationMode.wrappedValue.dismiss()
+                        
                     }
-                    
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    Spacer()
                 }
             }
         }

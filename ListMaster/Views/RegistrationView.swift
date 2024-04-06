@@ -47,6 +47,9 @@ struct RegistrationView: View {
                 Alert(title: Text("Ошибка"), message: Text("Проверьте подключение к интернету"), dismissButton: .default(Text("OK")))
             }
             .padding()
+            .background(Color.blue)
+            .foregroundColor(.white)
+            .cornerRadius(10)
         }
         .padding()
         .navigationTitle("Регистрация")
@@ -81,8 +84,6 @@ struct RegistrationView: View {
                             let dateFormatter = DateFormatter()
                             dateFormatter.dateFormat = "dd.MM.yyyy HH:mm:ss"
                             let expiresAtDate = dateFormatter.date(from: registrationResponse.expiresAt)
-                            print("Token: \(registrationResponse.token)")
-                            print("Expires At: \(registrationResponse.expiresAt)")
                             UserDefaults.standard.set(true, forKey: "isUserLoggedIn")
                             UserDefaults.standard.set(userId.uuidString, forKey: "UserId")
                             UserDefaults.standard.set(userName, forKey: "UserName")

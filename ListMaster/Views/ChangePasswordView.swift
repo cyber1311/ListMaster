@@ -13,7 +13,6 @@ struct ChangePasswordView: View {
     @State private var showCommonErrorAlert = false
     @State private var showPasswordErrorAlert = false
     
-    @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
     @State private var oldPassword: String = ""
     @State private var newPassword: String = ""
@@ -21,26 +20,32 @@ struct ChangePasswordView: View {
     var body: some View {
         Form {
             Section(header: Text("Изменение пароля")) {
-                TextField("Старый пароль", text: $oldPassword)
-                    .padding()
-                TextField("Новый пароль", text: $newPassword)
+                SecureField("Старый пароль", text: $oldPassword)
+                SecureField("Новый пароль", text: $newPassword)
                 
             }
-            .padding()
             
             Section {
-                Button("Сохранить") {
-                    if let password = UserDefaults.standard.object(forKey: "UserPassword") as? String {
-                        if password == oldPassword{
-                            showPasswordErrorAlert = false
-                            updatePasswordForServer()
-                            UserDefaults.standard.set(newPassword, forKey: "UserPassword")
-                            self.presentationMode.wrappedValue.dismiss()
-                        }else{
-                            showPasswordErrorAlert = true
+                HStack{
+                    Spacer()
+                    Button("Сохранить") {
+                        if let password = UserDefaults.standard.object(forKey: "UserPassword") as? String {
+                            if password == oldPassword{
+                                showPasswordErrorAlert = false
+                                updatePasswordForServer()
+                                UserDefaults.standard.set(newPassword, forKey: "UserPassword")
+                                self.presentationMode.wrappedValue.dismiss()
+                            }else{
+                                showPasswordErrorAlert = true
+                            }
+                            
                         }
-                        
                     }
+                    .padding()
+                    .background(Color.blue)
+                    .foregroundColor(.white)
+                    .cornerRadius(10)
+                    Spacer()
                 }
             }
         }
