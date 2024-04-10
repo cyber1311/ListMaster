@@ -11,6 +11,7 @@ import SwiftUI
 struct ChangeEmailView: View {
     @State private var showInternetErrorAlert = false
     @State private var showCommonErrorAlert = false
+    @State var userInfo: UserInfo
     
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
     @State private var newEmail: String = ""
@@ -20,7 +21,6 @@ struct ChangeEmailView: View {
             Section(header: Text("Изменение электронной почты")) {
                 TextField("Новая электронная почта", text: $newEmail)
             }
-            .padding()
             
             Section {
                 HStack{
@@ -51,18 +51,13 @@ struct ChangeEmailView: View {
     
     func updateEmailForServer(){
         do{
-            let userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId") ?? "")
-            
-            let userUpdateEmailRequest = UserUpdateEmailRequest(id: userId!, email: newEmail)
-            
-            let token = UserDefaults.standard.string(forKey: "Token")
-            
+            let userUpdateEmailRequest = UserUpdateEmailRequest(id: userInfo.UserId, email: newEmail)
             let url = URL(string: "http://localhost:5211/users/update_user_email")!
 
             var request = URLRequest(url: url)
             request.httpMethod = "PUT"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.addValue("Bearer " + (token ?? ""), forHTTPHeaderField: "Authorization")
+            request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
             
             let jsonData = try JSONEncoder().encode(userUpdateEmailRequest)
             request.httpBody = jsonData

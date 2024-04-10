@@ -9,11 +9,11 @@ import Foundation
 import SwiftUI
 
 struct ShareManagementView: View {
-    @State private var showInternetErrorAlert = false
-    @State private var showCommonErrorAlert = false
+    @State private var showErrorAlert = false
+    @State private var alertMessage = ""
     @ObservedObject var listModel: ListModel
-    @State private var userId: UUID = UUID()
-    @State private var token: String = ""
+    @State var userInfo: UserInfo
+    
     @ObservedObject var userModel: UserModel = UserModel()
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
     
@@ -30,7 +30,7 @@ struct ShareManagementView: View {
                 
             }
             Section(header: Text("Пользователи с доступом к этому списку")){
-                if userId == listModel.OwnerId{
+                if userInfo.UserId == listModel.OwnerId{
                     ForEach($userModel.users, id: \.id) { user in
                         if(user.wrappedValue.id != listModel.OwnerId){
                             VStack(alignment: .leading){
@@ -52,7 +52,7 @@ struct ShareManagementView: View {
                 }
                 
             }
-            if userId == listModel.OwnerId{
+            if userInfo.UserId == listModel.OwnerId{
                 Section {
                     HStack{
                         Spacer()
@@ -70,20 +70,15 @@ struct ShareManagementView: View {
                 }
             }
         }
-        .alert(isPresented: $showInternetErrorAlert) {
-            Alert(title: Text("Ошибка"), message: Text("Проверьте подключение к интернету"), dismissButton: .default(Text("OK")))
-        }
-        .alert(isPresented: $showCommonErrorAlert) {
-            Alert(title: Text("Ошибка"), message: Text("Произошли технические неполадки"), dismissButton: .default(Text("OK")))
+        .alert(isPresented: $showErrorAlert) {
+            Alert(title: Text("Ошибка"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
         }
         .navigationTitle(listModel.Title)
         .onAppear{
-            userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId")!)!
-            token = UserDefaults.standard.string(forKey: "Token")!
             getAllListUsers()
         }
         .toolbar {
-            if userId == listModel.OwnerId{
+            if userInfo.UserId == listModel.OwnerId{
                 ToolbarItem {
                     EditButton()
                 }
@@ -105,29 +100,33 @@ struct ShareManagementView: View {
     
     
     func cancelShareForUser(userToDeleteId: UUID){
-        let url = URL(string: "http://localhost:5211/lists/cancel_share_for_user?owner_id=\(userId.uuidString.lowercased())&user_id=\(userToDeleteId.uuidString.lowercased())&list_id=\(listModel.Id.uuidString.lowercased())")!
+        let url = URL(string: "http://localhost:5211/lists/cancel_share_for_user?owner_id=\(userInfo.UserId.uuidString.lowercased())&user_id=\(userToDeleteId.uuidString.lowercased())&list_id=\(listModel.Id.uuidString.lowercased())")!
         
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
+        request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
         
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             } else if data != nil {
                 if let httpResponse = response as? HTTPURLResponse{
-                    if httpResponse.statusCode == 200{
-                        showCommonErrorAlert = false
-                        showInternetErrorAlert = false
-                    } else {
-                        print("Some error")
-                        showCommonErrorAlert = true
+                    if httpResponse.statusCode != 200{
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     }
                 }
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             }
         }
         
@@ -136,29 +135,33 @@ struct ShareManagementView: View {
     }
     
     func deleteListShare(){
-        let url = URL(string: "http://localhost:5211/lists/delete_list_share?user_id=\(userId.uuidString.lowercased())&list_id=\(listModel.Id.uuidString.lowercased())")!
+        let url = URL(string: "http://localhost:5211/lists/delete_list_share?user_id=\(userInfo.UserId.uuidString.lowercased())&list_id=\(listModel.Id.uuidString.lowercased())")!
         
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
+        request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
         
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             } else if data != nil {
                 if let httpResponse = response as? HTTPURLResponse{
-                    if httpResponse.statusCode == 200{
-                        showCommonErrorAlert = false
-                        showInternetErrorAlert = false
-                    } else {
-                        print("Some error")
-                        showCommonErrorAlert = true
+                    if httpResponse.statusCode != 200{
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     }
                 }
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             }
         }
         
@@ -167,17 +170,19 @@ struct ShareManagementView: View {
     }
     
     func getAllListUsers(){
-        let url = URL(string: "http://localhost:5211/lists/get_all_list_users?user_id=\(userId.uuidString.lowercased())&list_id=\(listModel.Id.uuidString.lowercased())")!
+        let url = URL(string: "http://localhost:5211/lists/get_all_list_users?user_id=\(userInfo.UserId.uuidString.lowercased())&list_id=\(listModel.Id.uuidString.lowercased())")!
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
+        request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
 
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             } else if let data = data {
                 do{
                     if let httpResponse = response as? HTTPURLResponse{
@@ -186,20 +191,26 @@ struct ShareManagementView: View {
 
                             userModel.users = try decoder.decode([GroupMember].self, from: data)
                             userModel.reload()
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
                         } else {
-                            print("Bad status code")
-                            showCommonErrorAlert = true
+                            DispatchQueue.main.async {
+                                showErrorAlert = true
+                                alertMessage = "Произошли технические неполадки"
+                            }
                         }
                     }
                 }
                 catch{
-                    print("No data")
+                    DispatchQueue.main.async {
+                        showErrorAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
                 }
                 
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             }
         }
         

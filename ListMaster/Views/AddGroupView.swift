@@ -11,37 +11,41 @@ import SwiftUI
 struct AddGroupView: View {
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
     @ObservedObject public var groupModel: GroupModel
-    @State private var userId: UUID = UUID()
-    @State private var token: String = ""
+    @State var userInfo: UserInfo
     @State var groupTitle = ""
-    @State private var showInternetErrorAlert = false
-    @State private var showCommonErrorAlert = false
+    @State private var showErrorAlert = false
+    @State private var alertMessage = ""
     
     var body: some View {
         Form {
             Section(header: Text("Создание новой группы")) {
                 TextField("Название группы", text: $groupTitle)
             }
-            Section {
+            HStack(alignment: .center) {
+                Spacer()
                 Button(action: {
                     if groupTitle == ""{
                         groupTitle = "Новая группа"
                     }
                     let groupId = UUID()
-                    groupModel.groups.append(Group(id: groupId, title: groupTitle, owner_id: userId))
+                    groupModel.groups.append(Group(id: groupId, title: groupTitle, owner_id: userInfo.UserId))
+                    groupModel.reload()
                     addGroupToServer(groupId: groupId)
                     self.groupTitle = ""
-                    groupModel.reload()
                     self.presentationMode.wrappedValue.dismiss()
                 }) {
                     Text("Сохранить")
                 }
+                .padding()
+                .background(Color.blue)
+                .foregroundColor(.white)
+                .cornerRadius(10)
+                Spacer()
             }
         }
         .navigationTitle("Профиль")
         .onAppear{
-            userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId")!)!
-            token = UserDefaults.standard.string(forKey: "Token")!
+            groupModel.reload()
         }
     }
     
@@ -51,36 +55,41 @@ struct AddGroupView: View {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
-            let group = Group(id: groupId, title: groupTitle, owner_id: userId)
+            request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
+            let group = Group(id: groupId, title: groupTitle, owner_id: userInfo.UserId)
             let jsonData = try JSONEncoder().encode(group)
             request.httpBody = jsonData
             
             let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-                if let error = error {
-                    showInternetErrorAlert = true
-                    print("Error: \(error)")
+                if error != nil {
+                    DispatchQueue.main.async {
+                        showErrorAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
                 } else if data != nil {
                     if let httpResponse = response as? HTTPURLResponse{
-                        if httpResponse.statusCode == 200{
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
-                        } else {
-                            print("Some error")
-                            showCommonErrorAlert = true
+                        if httpResponse.statusCode != 200{
+                            DispatchQueue.main.async {
+                                showErrorAlert = true
+                                alertMessage = "Произошли технические неполадки"
+                            }
                         }
                     }
                     
                 }else{
-                    showCommonErrorAlert = true
-                    print("Some error")
+                    DispatchQueue.main.async {
+                        showErrorAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
                 }
             }
             
             task.resume()
-            groupModel.reload()
         } catch {
-            print("Some error")
+            DispatchQueue.main.async {
+                showErrorAlert = true
+                alertMessage = "Произошли технические неполадки"
+            }
         }
     }
 }

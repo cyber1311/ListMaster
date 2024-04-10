@@ -8,16 +8,11 @@
 import SwiftUI
 
 struct ProfileView: View {
-    @State private var userName = ""
-    @State private var userEmail = ""
-    @State private var userPassword = ""
+    @State var userInfo: UserInfo
     @State private var conditionIsMet = false
-    @State private var userId: UUID = UUID()
-    @State private var token: String = ""
     @ObservedObject var groupModel: GroupModel = GroupModel()
-    @State private var showInternetErrorAlert = false
-    @State private var showCommonErrorAlert = false
-    @State private var showUserNotExistErrorAlert = false
+    @State private var showErrorAlert = false
+    @State private var alertMessage = ""
     
     var body: some View {
         List{
@@ -29,34 +24,34 @@ struct ProfileView: View {
                         .frame(width:50, height: 50)
                         .foregroundColor(.blue)
                     VStack(alignment: .leading, content: {
-                        Text(userName).bold()
-                        Text(userEmail)
+                        Text(userInfo.UserName).bold()
+                        Text(userInfo.UserEmail)
                     })
                 }
             }
             
             Section(header: Text("Ваши группы:")){
                 ForEach($groupModel.groups) { group in
-                    NavigationLink(destination: EditGroupView(groupModel: groupModel, group: group)) {
+                    NavigationLink(destination: EditGroupView(groupModel: groupModel, group: group, userInfo: userInfo)) {
                         Text(group.wrappedValue.title)
                     }
                 }
-                NavigationLink(destination: AddGroupView(groupModel: groupModel)) {
+                NavigationLink(destination: AddGroupView(groupModel: groupModel, userInfo: userInfo)) {
                     Text("Добавить новую группу").foregroundColor(.blue)
                 }
             }
             
             Section(header: Text("Настройки")){
-                NavigationLink(destination: ChangeNameView()) {
+                NavigationLink(destination: ChangeNameView(userInfo: userInfo)) {
                     Text("Изменить имя").foregroundColor(.blue)
                 }
-                NavigationLink(destination: ChangeEmailView()) {
+                NavigationLink(destination: ChangeEmailView(userInfo: userInfo)) {
                     Text("Изменить электронную почту").foregroundColor(.blue)
                 }
-                NavigationLink(destination: ChangePasswordView()) {
+                NavigationLink(destination: ChangePasswordView(userInfo: userInfo)) {
                     Text("Изменить пароль").foregroundColor(.blue)
                 }
-                NavigationLink(destination: DeleteUserView()) {
+                NavigationLink(destination: DeleteUserView(userInfo: userInfo)) {
                     Text("Удалить аккаунт").foregroundColor(.red)
                 }
             }
@@ -71,6 +66,7 @@ struct ProfileView: View {
                     UserDefaults.standard.removeObject(forKey: "UserEmail")
                     UserDefaults.standard.removeObject(forKey: "Token")
                     UserDefaults.standard.removeObject(forKey: "TokenExpiresAt")
+
                     conditionIsMet = true
                 }) {
                     Text("Выйти")
@@ -84,14 +80,6 @@ struct ProfileView: View {
         }
         .navigationTitle("Профиль")
         .onAppear{
-            if let name = UserDefaults.standard.object(forKey: "UserName") as? String {
-                userName = name
-            }
-            if let email = UserDefaults.standard.object(forKey: "UserEmail") as? String {
-                userEmail = email
-            }
-            userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId")!)!
-            token = UserDefaults.standard.string(forKey: "Token")!
             getAllUserGroups()
         }
         .fullScreenCover(isPresented: $conditionIsMet) {
@@ -100,50 +88,63 @@ struct ProfileView: View {
         .refreshable{
             getAllUserGroups()
         }
+        .alert(isPresented: $showErrorAlert) {
+            Alert(title: Text("Ошибка"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
+        }
     }
+
+    
     
     func getAllUserGroups(){
-        let url = URL(string: "http://localhost:5211/groups/get_all_user_groups?user_id=\(userId.uuidString.lowercased())")!
+        let url = URL(string: "http://localhost:5211/groups/get_all_user_groups?user_id=\(userInfo.UserId.uuidString.lowercased())")!
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
+        request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
 
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
+            if error != nil {
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             } else if let data = data {
                 do{
                     if let httpResponse = response as? HTTPURLResponse{
                         if httpResponse.statusCode == 200{
                             let decoder = JSONDecoder()
-
                             groupModel.groups = try decoder.decode([Group].self, from: data)
-                            groupModel.reload()
-                            showUserNotExistErrorAlert = false
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
                         } else if httpResponse.statusCode == 404{
-                            print("Такого пользователя не существует")
-                            showUserNotExistErrorAlert = true
+                            DispatchQueue.main.async {
+                                showErrorAlert = true
+                                alertMessage = "Такого пользователя не существует"
+                            }
                         } else {
-                            print("Bad status code")
-                            showCommonErrorAlert = true
+                            DispatchQueue.main.async {
+                                showErrorAlert = true
+                                alertMessage = "Произошли технические неполадки"
+                            }
                         }
                     }
                 }
                 catch{
-                    print("No data")
+                    DispatchQueue.main.async {
+                        showErrorAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
                 }
                 
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             }
         }
         
         task.resume()
+        groupModel.reload()
     }
     
 }

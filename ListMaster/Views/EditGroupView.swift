@@ -11,14 +11,13 @@ import SwiftUI
 struct EditGroupView: View {
     @ObservedObject var groupModel: GroupModel
     @Binding var group: Group
-    @State private var userId: UUID = UUID()
-    @State private var token: String = ""
+    @State  var userInfo: UserInfo
     @State var newGroupTitle = ""
     @State var newUserEmail = ""
     @State var ownerName = ""
     @State var ownerEmail = ""
-    @State private var showInternetErrorAlert = false
-    @State private var showCommonErrorAlert = false
+    @State private var showErrorAlert = false
+    @State private var alertMessage = ""
     @Environment(\.editMode) var editMode
     @ObservedObject var groupMembersModel: GroupMemberModel = GroupMemberModel()
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
@@ -55,7 +54,7 @@ struct EditGroupView: View {
             }
             
             Section(header: Text("Участники группы:")) {
-                if group.ownerId == userId{
+                if group.ownerId == userInfo.UserId{
                     HStack {
                         TextField("Новый участник", text: $newUserEmail)
                         Button(action: {
@@ -67,15 +66,12 @@ struct EditGroupView: View {
                         }, label: {
                             Image(systemName: "plus.circle.fill")
                         })
-                        .alert(isPresented: $showInternetErrorAlert) {
-                            Alert(title: Text("Ошибка"), message: Text("Проверьте подключение к интернету"), dismissButton: .default(Text("OK")))
-                        }
-                        .alert(isPresented: $showCommonErrorAlert) {
-                            Alert(title: Text("Ошибка"), message: Text("Произошли технические неполадки"), dismissButton: .default(Text("OK")))
+                        .alert(isPresented: $showErrorAlert) {
+                            Alert(title: Text("Ошибка"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
                         }
                     }
                 }
-                if group.ownerId == userId{
+                if group.ownerId == userInfo.UserId{
                     ForEach($groupMembersModel.groupMembers, id: \.id) { groupMember in
                         if(groupMember.wrappedValue.id != group.ownerId){
                             VStack(alignment: .leading){
@@ -97,7 +93,7 @@ struct EditGroupView: View {
                 }
                 
             }
-            if group.ownerId == userId{
+            if group.ownerId == userInfo.UserId{
                 HStack{
                     Spacer()
                     Button(action:{
@@ -117,7 +113,7 @@ struct EditGroupView: View {
                 HStack{
                     Spacer()
                     Button(action:{
-                        removeGroupMemberFromServer(groupMemberId: userId)
+                        removeGroupMemberFromServer(groupMemberId: userInfo.UserId)
 
                         self.presentationMode.wrappedValue.dismiss()
                     }) {
@@ -134,12 +130,11 @@ struct EditGroupView: View {
         }
         .navigationTitle(group.title)
         .onAppear{
-            userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId")!)!
-            token = UserDefaults.standard.string(forKey: "Token")!
             getAllGroupMembers()
+            
         }
         .toolbar {
-            if group.ownerId == userId{
+            if group.ownerId == userInfo.UserId{
                 ToolbarItem {
                     EditButton()
                 }
@@ -157,32 +152,32 @@ struct EditGroupView: View {
             removeGroupMemberFromServer(groupMemberId: groupMemberId)
         }
         groupMembersModel.groupMembers.remove(atOffsets: offsets)
+        groupMembersModel.reload()
     }
     
     func removeGroupMemberFromServer(groupMemberId: UUID){
-        let url = URL(string: "http://localhost:5211/groups/delete_group_member?user_id=\(userId.uuidString.lowercased())&group_id=\(group.id.uuidString.lowercased())&user_to_delete_id=\(groupMemberId.uuidString.lowercased())")!
+        let url = URL(string: "http://localhost:5211/groups/delete_group_member?user_id=\(userInfo.UserId.uuidString.lowercased())&group_id=\(group.id.uuidString.lowercased())&user_to_delete_id=\(groupMemberId.uuidString.lowercased())")!
         
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
+        request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
         
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
-            } else if data != nil {
+            if data != nil {
                 if let httpResponse = response as? HTTPURLResponse{
-                    if httpResponse.statusCode == 200{
-                        showCommonErrorAlert = false
-                        showInternetErrorAlert = false
-                    } else {
-                        print("Some error")
-                        showCommonErrorAlert = true
+                    if httpResponse.statusCode != 200{
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     }
                 }
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             }
         }
         
@@ -190,29 +185,28 @@ struct EditGroupView: View {
     }
     
     func removeGroup(){
-        let url = URL(string: "http://localhost:5211/groups/delete_group?user_id=\(userId.uuidString.lowercased())&group_id=\(group.id.uuidString.lowercased())")!
+        let url = URL(string: "http://localhost:5211/groups/delete_group?user_id=\(userInfo.UserId.uuidString.lowercased())&group_id=\(group.id.uuidString.lowercased())")!
         
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
+        request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
         
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
-            } else if data != nil {
+            if data != nil {
                 if let httpResponse = response as? HTTPURLResponse{
-                    if httpResponse.statusCode == 200{
-                        showCommonErrorAlert = false
-                        showInternetErrorAlert = false
-                    } else {
-                        print("Some error")
-                        showCommonErrorAlert = true
+                    if httpResponse.statusCode != 200{
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     }
                 }
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             }
         }
         
@@ -222,35 +216,43 @@ struct EditGroupView: View {
     func updateGroupTitleForServer(){
         do{
             
-            let groupUpdateTitleRequest = GroupUpdateTitleRequest(id: group.id, title: newGroupTitle, user_id: userId)
+            let groupUpdateTitleRequest = GroupUpdateTitleRequest(id: group.id, title: newGroupTitle, user_id: userInfo.UserId)
             
             let url = URL(string: "http://localhost:5211/groups/update_group_title")!
 
             var request = URLRequest(url: url)
             request.httpMethod = "PUT"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
+            request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
             
             let jsonData = try JSONEncoder().encode(groupUpdateTitleRequest)
             request.httpBody = jsonData
             
             let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-                if let error = error {
-                    showInternetErrorAlert = true
-                    print("Error: \(error)")
-                } else if data != nil {
+                if error != nil{
+                    DispatchQueue.main.async {
+                        showErrorAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
+                }
+                else if data != nil {
                     if let httpResponse = response as? HTTPURLResponse{
-                        if httpResponse.statusCode == 200{
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
-                        } else {
-                            print("Some error")
-                            showCommonErrorAlert = true
+                        if httpResponse.statusCode == 404{
+                            showErrorAlert = true
+                            alertMessage = "Такой пользователь не найден"
+                        }else if httpResponse.statusCode != 200{
+                            DispatchQueue.main.async {
+                                showErrorAlert = true
+                                alertMessage = "Произошли технические неполадки"
+                            }
                         }
                     }
                     
                 }else{
-                    print("Some error")
+                    DispatchQueue.main.async {
+                        showErrorAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
                 }
             }
             
@@ -266,30 +268,35 @@ struct EditGroupView: View {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
-            let groupMemberAddRequest = GroupMemberAddRequest(group_id: group.id, user_id: userId, user_to_add_email: newUserEmail)
+            request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
+            let groupMemberAddRequest = GroupMemberAddRequest(group_id: group.id, user_id: userInfo.UserId, user_to_add_email: newUserEmail)
             let jsonData = try JSONEncoder().encode(groupMemberAddRequest)
             request.httpBody = jsonData
             
             let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-                if let error = error {
-                    showInternetErrorAlert = true
-                    print("Error: \(error)")
-                } else if data != nil {
+                if data != nil {
                     if let httpResponse = response as? HTTPURLResponse{
                         if httpResponse.statusCode == 200{
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
                             getAllGroupMembers()
-                        } else {
-                            print("Some error")
-                            showCommonErrorAlert = true
+                        } else if httpResponse.statusCode == 404 {
+                            DispatchQueue.main.async {
+                                showErrorAlert = true
+                                alertMessage = "Пользователь не найден"
+                            }
+                        }
+                        else {
+                            DispatchQueue.main.async {
+                                showErrorAlert = true
+                                alertMessage = "Произошли технические неполадки"
+                            }
                         }
                     }
                     
                 }else{
-                    showCommonErrorAlert = true
-                    print("Some error")
+                    DispatchQueue.main.async {
+                        showErrorAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
                 }
             }
             
@@ -300,38 +307,41 @@ struct EditGroupView: View {
     }
     
     func getAllGroupMembers(){
-        let url = URL(string: "http://localhost:5211/groups/get_all_group_members?user_id=\(userId.uuidString.lowercased())&group_id=\(group.id.uuidString.lowercased())")!
+        let url = URL(string: "http://localhost:5211/groups/get_all_group_members?user_id=\(userInfo.UserId.uuidString.lowercased())&group_id=\(group.id.uuidString.lowercased())")!
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
+        request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
 
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
-            } else if let data = data {
+            if let data = data {
                 do{
                     if let httpResponse = response as? HTTPURLResponse{
                         if httpResponse.statusCode == 200{
                             let decoder = JSONDecoder()
                             groupMembersModel.groupMembers = try decoder.decode([GroupMember].self, from: data)
                             groupMembersModel.reload()
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
                         } else {
-                            print("Bad status code")
-                            showCommonErrorAlert = true
+                            DispatchQueue.main.async {
+                                showErrorAlert = true
+                                alertMessage = "Произошли технические неполадки"
+                            }
                         }
                     }
                 }
                 catch{
-                    print("No data")
+                    DispatchQueue.main.async {
+                        showErrorAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
                 }
                 
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             }
         }
         

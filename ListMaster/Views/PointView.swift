@@ -11,12 +11,12 @@ import UserNotifications
 import SDWebImageSwiftUI
 
 struct PointView: View {
-    @State private var showInternetErrorAlert = false
-    @State private var showCommonErrorAlert = false
+    @State private var showErrorAlert = false
+    @State private var alertMessage = ""
     
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
     @Binding var listElement: ListElement
-    @ObservedObject var viewModel: ListModel
+    @ObservedObject var listModel: ListModel
     @State private var listElementTitle: String = ""
     @State private var listElementDescription: String = ""
     @State private var listElementReminder: Date = Date()
@@ -29,6 +29,7 @@ struct PointView: View {
     @State private var isImagePickerOn: Bool = false
     @State private var selectedImage: UIImage?
     @State private var isCompleted: Bool = false
+    @State var userInfo: UserInfo
   
     
     
@@ -82,8 +83,11 @@ struct PointView: View {
                 }
                 if listElement.Deadline != nil && listElement.Deadline!.compare(Date()) == .orderedAscending{
                     VStack(alignment: .trailing){
-                        Text("Дедлайн: \(formatDate(date: listElement.Deadline!))")
-                            .foregroundColor(.red)
+                        HStack{
+                            Text("Дедлайн: ").foregroundColor(.red)
+                            Spacer()
+                            Text("\(formatDate(date: listElement.Deadline!))").foregroundColor(.red)
+                        }
                         Button(action: {
                             listElement.Deadline = nil
                         }, label: {
@@ -249,12 +253,8 @@ struct PointView: View {
             self.listElementCount = Int32(self.listElement.Count)
             self.isCompleted = self.listElement.IsDone
         }
-        .alert(isPresented: $showInternetErrorAlert) {
-            Alert(title: Text("Ошибка"), message: Text("Проверьте подключение к интернету"), dismissButton: .default(Text("OK")))
-        }
-        
-        .alert(isPresented: $showCommonErrorAlert) {
-            Alert(title: Text("Ошибка"), message: Text("Произошли технические неполадки"), dismissButton: .default(Text("OK")))
+        .alert(isPresented: $showErrorAlert) {
+            Alert(title: Text("Ошибка"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
         }
         
         .navigationTitle(listElement.Title)
@@ -263,47 +263,51 @@ struct PointView: View {
     
     func updateElementsForServer(){
         do {
-            let jsonElements = try JSONEncoder().encode(viewModel.Elements)
+            let jsonElements = try JSONEncoder().encode(listModel.Elements)
             let stringElements = String(data: jsonElements, encoding: .utf8)
-            let userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId") ?? "")
-            
-            let listUpdateElementsRequest = ListUpdateElementsRequest(userId: userId!, id: viewModel.Id, elements: stringElements!)
-            
-            let token = UserDefaults.standard.string(forKey: "Token")
+
+            let listUpdateElementsRequest = ListUpdateElementsRequest(userId: userInfo.UserId, id: listModel.Id, elements: stringElements!)
             
             let url = URL(string: "http://localhost:5211/lists/update_list_elements")!
 
             var request = URLRequest(url: url)
             request.httpMethod = "PUT"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.addValue("Bearer " + (token ?? ""), forHTTPHeaderField: "Authorization")
+            request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
             
             let jsonData = try JSONEncoder().encode(listUpdateElementsRequest)
             request.httpBody = jsonData
             
             let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-                if let error = error {
-                    showInternetErrorAlert = true
-                    print("Error: \(error)")
+                if error != nil {
+                    DispatchQueue.main.async {
+                        showErrorAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
                 } else if data != nil {
                     if let httpResponse = response as? HTTPURLResponse{
-                        if httpResponse.statusCode == 200{
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
-                        } else {
-                            print("Some error")
-                            showCommonErrorAlert = true
+                        if httpResponse.statusCode != 200{
+                            DispatchQueue.main.async {
+                                showErrorAlert = true
+                                alertMessage = "Произошли технические неполадки"
+                            }
                         }
                     }
                     
                 }else{
-                    print("Some error")
+                    DispatchQueue.main.async {
+                        showErrorAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
                 }
             }
             
             task.resume()
         } catch {
-            print("Error fetching list elements: \(error)")
+            DispatchQueue.main.async {
+                showErrorAlert = true
+                alertMessage = "Произошли технические неполадки"
+            }
         }
     }
     
@@ -375,21 +379,25 @@ struct PointView: View {
         request.httpBody = body
         
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
+            if error != nil {
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             } else if data != nil {
                 if let httpResponse = response as? HTTPURLResponse{
-                    if httpResponse.statusCode == 200{
-                        showCommonErrorAlert = false
-                        showInternetErrorAlert = false
-                    } else {
-                        print("Some error")
-                        showCommonErrorAlert = true
+                    if httpResponse.statusCode != 200{
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     }
                 }
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             }
         }
         
@@ -405,21 +413,25 @@ struct PointView: View {
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
+            if error != nil {
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             } else if data != nil {
                 if let httpResponse = response as? HTTPURLResponse{
-                    if httpResponse.statusCode == 200{
-                        showCommonErrorAlert = false
-                        showInternetErrorAlert = false
-                    } else {
-                        print("Some error")
-                        showCommonErrorAlert = true
+                    if httpResponse.statusCode != 200{
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     }
                 }
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             }
         }
         

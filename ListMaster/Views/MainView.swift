@@ -8,13 +8,11 @@
 import SwiftUI
 
 struct MainScreenView: View {
-    @ObservedObject var my_lists: ListViewModel = ListViewModel()
-    @State private var userId: UUID = UUID()
-    @State private var token: String = ""
+    @ObservedObject var listModel: ListViewModel = ListViewModel()
+    @State var userInfo: UserInfo = UserInfo()
     @State private var newList = ""
-    @State private var showInternetErrorAlert = false
-    @State private var showCommonErrorAlert = false
-    @State private var showUserNotExistErrorAlert = false
+    @State private var showAlert = false
+    @State private var alertMessage = ""
     @State private var isShareListPresented = false
     @State private var listToShare: UUID? = nil
     
@@ -26,7 +24,7 @@ struct MainScreenView: View {
                     Button(action: {
                         if newList != ""{
                             let listId = UUID()
-                            my_lists.lists.append(ListModel(id: listId, title: self.newList, elements: [], is_shared: false, owner_id: userId))
+                            listModel.lists.append(ListModel(id: listId, title: self.newList, elements: [], is_shared: false, owner_id: userInfo.UserId))
                             addListToServer(listId: listId)
                             self.newList = ""
                         }
@@ -37,14 +35,14 @@ struct MainScreenView: View {
                 }
             }
             Section(header: Text("Ваши списки")) {
-                ForEach($my_lists.lists) { list in
-                    NavigationLink(destination: ListDetailView(viewModel: list.wrappedValue)) {
+                ForEach($listModel.lists) { list in
+                    NavigationLink(destination: ListDetailView(listModel: list.wrappedValue, userInfo: userInfo)) {
                         Text(list.wrappedValue.Title)
                     }
                     .contextMenu(menuItems: {
                         Button(action: {
                             let newListId = UUID()
-                            my_lists.lists.append(ListModel(id: newListId, title: list.wrappedValue.Title, elements: list.wrappedValue.Elements, is_shared: list.wrappedValue.IsShared, owner_id: list.wrappedValue.OwnerId))
+                            listModel.lists.append(ListModel(id: newListId, title: list.wrappedValue.Title, elements: list.wrappedValue.Elements, is_shared: list.wrappedValue.IsShared, owner_id: list.wrappedValue.OwnerId))
                             duplicateListToServer(listId: list.wrappedValue.Id, newListId: newListId)
                         }, label: {
                             HStack{
@@ -66,17 +64,18 @@ struct MainScreenView: View {
                         get: { isShareListPresented && listToShare != nil },
                         set: { _ in isShareListPresented = false }
                     )) {
-                        ShareListView(listId: listToShare!)
+                        ShareListView(listId: listToShare!, userInfo: userInfo)
                     }
                 }
-                .onDelete(perform: removeList)
+                .onDelete(perform: deleteList)
                 
                 
             }
         }
+        
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink(destination: ProfileView()) {
+                NavigationLink(destination: ProfileView(userInfo: userInfo)) {
                     Image(systemName: "person.circle.fill")
                         .resizable()
                         .aspectRatio(contentMode: .fit)
@@ -88,58 +87,55 @@ struct MainScreenView: View {
                 EditButton()
             }
         }
-        .alert(isPresented: $showInternetErrorAlert) {
-            Alert(title: Text("Ошибка"), message: Text("Проверьте подключение к интернету"), dismissButton: .default(Text("OK")))
-        }
-        .alert(isPresented: $showCommonErrorAlert) {
-            Alert(title: Text("Ошибка"), message: Text("Произошли технические неполадки"), dismissButton: .default(Text("OK")))
+        .alert(isPresented: $showAlert) {
+            Alert(title: Text("Ошибка"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
         }
         .onAppear{
-            userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId")!)!
-            token = UserDefaults.standard.string(forKey: "Token")!
-            download()
-            my_lists.reload()
+            getAllUserLists()
+            listModel.reload()
         }
         .navigationTitle("Списки")
         .refreshable{
-            download()
+            getAllUserLists()
         }
     }
     
-    func removeList(at offsets: IndexSet) {
+    func deleteList(at offsets: IndexSet) {
         for index in offsets {
-            let list = my_lists.lists[index]
+            let list = listModel.lists[index]
             let listId = list.Id
-            removeListFromServer(listId: listId)
+            deleteListFromServer(listId: listId)
         }
-        my_lists.lists.remove(atOffsets: offsets)
-        my_lists.reload()
+        listModel.lists.remove(atOffsets: offsets)
+        listModel.reload()
     }
     
-    func removeListFromServer(listId: UUID){
-        let url = URL(string: "http://localhost:5211/lists/delete_list?user_id=\(userId.uuidString.lowercased())&id=\(listId.uuidString.lowercased())")!
+    func deleteListFromServer(listId: UUID){
+        let url = URL(string: "http://localhost:5211/lists/delete_list?user_id=\(userInfo.UserId.uuidString.lowercased())&id=\(listId.uuidString.lowercased())")!
         
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
+        request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
         
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
-            } else if data != nil {
+            if data != nil {
                 if let httpResponse = response as? HTTPURLResponse{
-                    if httpResponse.statusCode == 200{
-                        showCommonErrorAlert = false
-                        showInternetErrorAlert = false
-                    } else {
-                        print("Some error")
-                        showCommonErrorAlert = true
+                    if httpResponse.statusCode == 404{
+                        showAlert = true
+                        alertMessage = "Список не найден"
+                    }else if httpResponse.statusCode != 200{
+                        DispatchQueue.main.async {
+                            showAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     }
                 }
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    showAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             }
         }
         
@@ -153,36 +149,39 @@ struct MainScreenView: View {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
-            let listModel = ListAddRequst(userId: userId, id: listId, title: newList, elements: "[]", is_shared: false, owner_id: userId)
-            let jsonData = try JSONEncoder().encode(listModel)
+            request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
+            let listAddRequst = ListAddRequst(userId: userInfo.UserId, id: listId, title: newList, elements: "[]", is_shared: false, owner_id: userInfo.UserId)
+            let jsonData = try JSONEncoder().encode(listAddRequst)
             request.httpBody = jsonData
             
             let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-                if let error = error {
-                    showInternetErrorAlert = true
-                    print("Error: \(error)")
-                } else if data != nil {
+                if data != nil {
                     if let httpResponse = response as? HTTPURLResponse{
-                        if httpResponse.statusCode == 200{
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
-                        } else {
-                            print("Some error")
-                            showCommonErrorAlert = true
+                        if httpResponse.statusCode == 404{
+                            showAlert = true
+                            alertMessage = "Список не найден"
+                        }else if httpResponse.statusCode != 200{
+                            DispatchQueue.main.async {
+                                showAlert = true
+                                alertMessage = "Произошли технические неполадки"
+                            }
                         }
                     }
-                    
                 }else{
-                    showCommonErrorAlert = true
-                    print("Some error")
+                    DispatchQueue.main.async {
+                        showAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
                 }
             }
             
             task.resume()
-            my_lists.reload()
+            listModel.reload()
         } catch {
-            print("Some error")
+            DispatchQueue.main.async {
+                showAlert = true
+                alertMessage = "Произошли технические неполадки"
+            }
         }
         
         
@@ -194,56 +193,56 @@ struct MainScreenView: View {
             var request = URLRequest(url: url)
             request.httpMethod = "POST"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
-            let listModel = ListDuplicateRequest(listId: listId, newListId: newListId, userId: userId)
-            let jsonData = try JSONEncoder().encode(listModel)
+            request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
+            let listDuplicateRequest = ListDuplicateRequest(listId: listId, newListId: newListId, userId: userInfo.UserId)
+            let jsonData = try JSONEncoder().encode(listDuplicateRequest)
             request.httpBody = jsonData
             
             let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-                if let error = error {
-                    showInternetErrorAlert = true
-                    print("Error: \(error)")
-                } else if data != nil {
+                if data != nil {
                     if let httpResponse = response as? HTTPURLResponse{
-                        if httpResponse.statusCode == 200{
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
-                        } else {
-                            print("Some error")
-                            showCommonErrorAlert = true
+                        if httpResponse.statusCode == 404{
+                            showAlert = true
+                            alertMessage = "Список не найден"
+                        }else if httpResponse.statusCode != 200{
+                            DispatchQueue.main.async {
+                                showAlert = true
+                                alertMessage = "Произошли технические неполадки"
+                            }
                         }
                     }
-                    
                 }else{
-                    showCommonErrorAlert = true
-                    print("Some error")
+                    DispatchQueue.main.async {
+                        showAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
                 }
             }
             
             task.resume()
-            my_lists.reload()
+            listModel.reload()
         } catch {
-            print("Some error")
+            DispatchQueue.main.async {
+                showAlert = true
+                alertMessage = "Произошли технические неполадки"
+            }
         }
         
         
     }
     
-    func download (){
-        my_lists.lists = []
+    func getAllUserLists (){
+        listModel.lists = []
         
-        let url = URL(string: "http://localhost:5211/lists/get_all_user_lists?user_id=\(userId.uuidString.lowercased())")!
+        let url = URL(string: "http://localhost:5211/lists/get_all_user_lists?user_id=\(userInfo.UserId.uuidString.lowercased())")!
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
+        request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
 
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
-            } else if let data = data {
+            if let data = data {
                 do{
                     if let httpResponse = response as? HTTPURLResponse{
                         if httpResponse.statusCode == 200{
@@ -255,33 +254,39 @@ struct MainScreenView: View {
                                 if let elementsData = list.elements.data(using: .utf8) {
                                     let elements = try decoder.decode([ListElement].self, from: elementsData)
                                     DispatchQueue.main.async {
-                                        my_lists.lists.append(ListModel(id: list.id, title: list.title, elements: elements, is_shared: list.isShared, owner_id: list.ownerId))
-                                        my_lists.sort()
+                                        listModel.lists.append(ListModel(id: list.id, title: list.title, elements: elements, is_shared: list.isShared, owner_id: list.ownerId))
+                                        listModel.sort()
                                     }
                                 }
                             }
                             DispatchQueue.main.async {
-                                my_lists.sort()
+                                listModel.sort()
                             }
-                            
-                            showUserNotExistErrorAlert = false
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
                         } else if httpResponse.statusCode == 404{
-                            print("Такого пользователя не существует")
-                            showUserNotExistErrorAlert = true
+                            DispatchQueue.main.async {
+                                showAlert = true
+                                alertMessage = "Такого пользователя не существует"
+                            }
                         } else {
-                            print("Bad status code")
-                            showCommonErrorAlert = true
+                            DispatchQueue.main.async {
+                                showAlert = true
+                                alertMessage = "Произошли технические неполадки"
+                            }
                         }
                     }
                 }
                 catch{
-                    print("No data")
+                    DispatchQueue.main.async {
+                        showAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
                 }
                 
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    showAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             }
         }
         

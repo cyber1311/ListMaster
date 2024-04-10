@@ -11,10 +11,9 @@ struct RegistrationView: View {
     @State private var userName = ""
     @State private var userEmail = ""
     @State private var userPassword = ""
-    @State private var conditionIsMet = false
-    @State private var showUserExistErrorAlert = false
-    @State private var showCommonErrorAlert = false
-    @State private var showInternetErrorAlert = false
+    @State private var goToMainView = false
+    @State private var showErrorAlert = false
+    @State private var alertMessage = ""
     
     var body: some View {
         VStack {
@@ -36,20 +35,19 @@ struct RegistrationView: View {
                 
             }) {
                 Text("Зарегистрироваться")
-            }.fullScreenCover(isPresented: $conditionIsMet) {
-                MainScreenView()
-            }
-            .alert(isPresented: $showUserExistErrorAlert) {
-                Alert(title: Text("Ошибка"), message: Text("Пожалуйста, введите другую почту. Пользователь с такой почтой уже существует"), dismissButton: .default(Text("OK")))
-            }.alert(isPresented: $showCommonErrorAlert) {
-                Alert(title: Text("Ошибка"), message: Text("Произошли технические неполадки. Попробуйте еще раз ввести данные"), dismissButton: .default(Text("OK")))
-            }.alert(isPresented: $showInternetErrorAlert) {
-                Alert(title: Text("Ошибка"), message: Text("Проверьте подключение к интернету"), dismissButton: .default(Text("OK")))
             }
             .padding()
             .background(Color.blue)
             .foregroundColor(.white)
             .cornerRadius(10)
+            .fullScreenCover(isPresented: $goToMainView) {
+                NavigationView{
+                    MainScreenView()
+                }
+            }
+            .alert(isPresented: $showErrorAlert) {
+                Alert(title: Text("Ошибка"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
+            }
         }
         .padding()
         .navigationTitle("Регистрация")
@@ -67,52 +65,63 @@ struct RegistrationView: View {
         do {
             let jsonData = try JSONEncoder().encode(user)
             request.httpBody = jsonData
-        } catch {
-            print("Error encoding user: \(error)")
-        }
-        
-        let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
-            } else if let data = data {
-                do{
-                    if let httpResponse = response as? HTTPURLResponse{
-                        if httpResponse.statusCode == 200{
-                            let decoder = JSONDecoder()
-                            let registrationResponse = try decoder.decode(RegistrationResponse.self, from: data)
-                            let dateFormatter = DateFormatter()
-                            dateFormatter.dateFormat = "dd.MM.yyyy HH:mm:ss"
-                            let expiresAtDate = dateFormatter.date(from: registrationResponse.expiresAt)
-                            UserDefaults.standard.set(true, forKey: "isUserLoggedIn")
-                            UserDefaults.standard.set(userId.uuidString, forKey: "UserId")
-                            UserDefaults.standard.set(userName, forKey: "UserName")
-                            UserDefaults.standard.set(userPassword, forKey: "UserPassword")
-                            UserDefaults.standard.set(userEmail, forKey: "UserEmail")
-                            UserDefaults.standard.set(registrationResponse.token, forKey: "Token")
-                            UserDefaults.standard.set(expiresAtDate, forKey: "TokenExpiresAt")
-                            conditionIsMet = true
-                            showUserExistErrorAlert = false
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
-                        } else if httpResponse.statusCode == 409{
-                            print("Пользователь с такой почтой уже существует")
-                            showUserExistErrorAlert = true
-                        } else {
-                            print("Some error")
-                            showCommonErrorAlert = true
+            let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
+                if let data = data {
+                    do{
+                        if let httpResponse = response as? HTTPURLResponse{
+                            if httpResponse.statusCode == 200{
+                                let decoder = JSONDecoder()
+                                let registrationResponse = try decoder.decode(RegistrationResponse.self, from: data)
+                                let dateFormatter = DateFormatter()
+                                dateFormatter.dateFormat = "dd.MM.yyyy HH:mm:ss"
+                                let expiresAtDate = dateFormatter.date(from: registrationResponse.expiresAt)
+                                DispatchQueue.main.async {
+                                    UserDefaults.standard.set(true, forKey: "isUserLoggedIn")
+                                    UserDefaults.standard.set(userId.uuidString, forKey: "UserId")
+                                    UserDefaults.standard.set(userName, forKey: "UserName")
+                                    UserDefaults.standard.set(userPassword, forKey: "UserPassword")
+                                    UserDefaults.standard.set(userEmail, forKey: "UserEmail")
+                                    UserDefaults.standard.set(registrationResponse.token, forKey: "Token")
+                                    UserDefaults.standard.set(expiresAtDate, forKey: "TokenExpiresAt")
+                                    goToMainView = true
+                                }
+                            } else if httpResponse.statusCode == 409{
+                                DispatchQueue.main.async {
+                                    alertMessage = "Пожалуйста, введите другую почту. Пользователь с такой почтой уже существует"
+                                    showErrorAlert = true
+                                }
+                                
+                            } else {
+                                DispatchQueue.main.async {
+                                    self.alertMessage = "Произошли технические неполадки"
+                                    self.showErrorAlert = true
+                                }
+                            }
                         }
                     }
+                    catch{
+                        DispatchQueue.main.async {
+                            self.alertMessage = "Произошли технические неполадки"
+                            self.showErrorAlert = true
+                        }
+                    }
+                    
+                }else{
+                    DispatchQueue.main.async {
+                        self.alertMessage = "Произошли технические неполадки"
+                        self.showErrorAlert = true
+                    }
                 }
-                catch{
-                    print("Some error")
-                }
-                
-            }else{
-                print("Some error")
+            }
+            
+            task.resume()
+        } catch {
+            DispatchQueue.main.async {
+                self.alertMessage = "Произошли технические неполадки"
+                self.showErrorAlert = true
             }
         }
         
-        task.resume()
+        
     }
 }

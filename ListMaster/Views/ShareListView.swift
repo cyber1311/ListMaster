@@ -9,15 +9,13 @@ import Foundation
 import SwiftUI
 
 struct ShareListView: View {
-    @State private var showInternetErrorAlert = false
-    @State private var showCommonErrorAlert = false
-    @State private var showUserNotExistErrorAlert = false
+    @State private var showErrorAlert = false
+    @State private var alertMessage = ""
     @State private var newUserEmail = ""
     @State private var share = false
     @State private var forGroup = false
     @State public var listId: UUID
-    @State private var userId: UUID = UUID()
-    @State private var token: String = ""
+    @State var userInfo: UserInfo
     @ObservedObject var groupModel: GroupModel = GroupModel()
     @State var selectedGroup: Group = Group(id: UUID(), title: "Не выбрана", owner_id: UUID())
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
@@ -31,6 +29,7 @@ struct ShareListView: View {
                 }
                 if forGroup == true{
                     Picker("Группа", selection: $selectedGroup) {
+                        Text("Не выбрано")
                         ForEach(groupModel.groups, id: \.self) { group in
                             Text(group.title).tag(group as Group?)
                         }
@@ -44,28 +43,31 @@ struct ShareListView: View {
                     }
                 }
                 Toggle("Предоставить доступ к редактированию", isOn: $share)
-                
-                Section {
-                    Button("Поделиться") {
-                        if share == true {
-                            shareListToServer()
-                        }else{
-                            copyListToServer()
+                Section{
+                    HStack {
+                        Spacer()
+                        Button("Поделиться") {
+                            if share == true {
+                                shareListToServer()
+                            }else{
+                                copyListToServer()
+                            }
+                            
                         }
-                        self.presentationMode.wrappedValue.dismiss()
+                        .padding()
+                        .background(Color.blue)
+                        .foregroundColor(.white)
+                        .cornerRadius(10)
+                        Spacer()
                     }
                 }
+                
             }
-            .alert(isPresented: $showInternetErrorAlert) {
-                Alert(title: Text("Ошибка"), message: Text("Проверьте подключение к интернету"), dismissButton: .default(Text("OK")))
-            }
-            .alert(isPresented: $showCommonErrorAlert) {
-                Alert(title: Text("Ошибка"), message: Text("Произошли технические неполадки"), dismissButton: .default(Text("OK")))
+            .alert(isPresented: $showErrorAlert) {
+                Alert(title: Text("Ошибка"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
             }
             .navigationTitle("Поделиться списком")
             .onAppear{
-                userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId")!)!
-                token = UserDefaults.standard.string(forKey: "Token")!
                 getAllUserGroups()
                 if groupModel.groups.count > 0{
                     selectedGroup = groupModel.groups[0]
@@ -79,52 +81,58 @@ struct ShareListView: View {
     func copyListToServer(){
         do {
             let url = URL(string: "http://localhost:5211/lists/copy_list")!
-            let userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId") ?? "")
-            let token = UserDefaults.standard.string(forKey: "Token")
-            
             if forGroup == false{
                 var request = URLRequest(url: url)
                 request.httpMethod = "POST"
                 request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.addValue("Bearer " + (token ?? ""), forHTTPHeaderField: "Authorization")
-                let listModel = ListCopyRequest(listId: listId, newListId: UUID(), userOwnerId: userId!, newUserEmail: newUserEmail)
+                request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
+                let listModel = ListCopyRequest(listId: listId, newListId: UUID(), userOwnerId: userInfo.UserId, newUserEmail: newUserEmail)
                 let jsonData = try JSONEncoder().encode(listModel)
                 request.httpBody = jsonData
 
                 let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-                    if let error = error {
-                        showInternetErrorAlert = true
-                        print("Error: \(error)")
+                    if error != nil {
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     } else if data != nil {
                         if let httpResponse = response as? HTTPURLResponse{
-                            if httpResponse.statusCode == 200{
-                                showCommonErrorAlert = false
-                                showInternetErrorAlert = false
-                                showUserNotExistErrorAlert = false
-                            } else if httpResponse.statusCode == 404{
-                                showUserNotExistErrorAlert = true
-                            } else {
-                                showCommonErrorAlert = true
+                            if httpResponse.statusCode == 404{
+                                DispatchQueue.main.async {
+                                    showErrorAlert = true
+                                    alertMessage = "Такого пользователя не существует"
+                                }
+                            } else if httpResponse.statusCode != 200{
+                                DispatchQueue.main.async {
+                                    showErrorAlert = true
+                                    alertMessage = "Произошли технические неполадки"
+                                }
                             }
                         }
                     }else{
-                        print("Some error")
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     }
                 }
                 task.resume()
             }else{
                 var groupMembers: [GroupMember] = []
-                let urlGroupMembers = URL(string: "http://localhost:5211/groups/get_all_group_members?user_id=\(userId!.uuidString.lowercased())&group_id=\(selectedGroup.id.uuidString.lowercased())")!
+                let urlGroupMembers = URL(string: "http://localhost:5211/groups/get_all_group_members?user_id=\(userInfo.UserId.uuidString.lowercased())&group_id=\(selectedGroup.id.uuidString.lowercased())")!
 
                 var request = URLRequest(url: urlGroupMembers)
                 request.httpMethod = "GET"
                 request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.addValue("Bearer " + (token!), forHTTPHeaderField: "Authorization")
+                request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
 
                 let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-                    if let error = error {
-                        showInternetErrorAlert = true
-                        print("Error: \(error)")
+                    if error != nil {
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     } else if let data = data {
                         do{
                             if let httpResponse = response as? HTTPURLResponse{
@@ -136,47 +144,61 @@ struct ShareListView: View {
                                         request.httpMethod = "POST"
                                         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
                                         
-                                        request.addValue("Bearer " + (token ?? ""), forHTTPHeaderField: "Authorization")
-                                        let listModel = ListCopyRequest(listId: listId, newListId: UUID(), userOwnerId: userId!, newUserEmail: groupMember.email)
+                                        request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
+                                        let listModel = ListCopyRequest(listId: listId, newListId: UUID(), userOwnerId: userInfo.UserId, newUserEmail: groupMember.email)
                                         let jsonData = try JSONEncoder().encode(listModel)
                                         request.httpBody = jsonData
 
                                         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-                                            if let error = error {
-                                                showInternetErrorAlert = true
-                                                print("Error: \(error)")
+                                            if error != nil {
+                                                DispatchQueue.main.async {
+                                                    showErrorAlert = true
+                                                    alertMessage = "Произошли технические неполадки"
+                                                }
                                             } else if data != nil {
                                                 if let httpResponse = response as? HTTPURLResponse{
-                                                    if httpResponse.statusCode == 200{
-                                                        showCommonErrorAlert = false
-                                                        showInternetErrorAlert = false
-                                                        showUserNotExistErrorAlert = false
-                                                    } else if httpResponse.statusCode == 404{
-                                                        showUserNotExistErrorAlert = true
-                                                    } else {
-                                                        showCommonErrorAlert = true
+                                                    if httpResponse.statusCode == 404{
+                                                        DispatchQueue.main.async {
+                                                            showErrorAlert = true
+                                                            alertMessage = "Такого пользователя не существует"
+                                                        }
+                                                    } else if httpResponse.statusCode != 200 {
+                                                        DispatchQueue.main.async {
+                                                            showErrorAlert = true
+                                                            alertMessage = "Произошли технические неполадки"
+                                                        }
                                                     }
                                                 }
                                             }else{
-                                                print("Some error")
+                                                DispatchQueue.main.async {
+                                                    showErrorAlert = true
+                                                    alertMessage = "Произошли технические неполадки"
+                                                }
                                             }
                                         }
                                         task.resume()
                                     }
-                                    showCommonErrorAlert = false
-                                    showInternetErrorAlert = false
+                                    self.presentationMode.wrappedValue.dismiss()
                                 } else {
-                                    print("Bad status code")
-                                    showCommonErrorAlert = true
+                                    DispatchQueue.main.async {
+                                        showErrorAlert = true
+                                        alertMessage = "Произошли технические неполадки"
+                                    }
                                 }
                             }
                         }
                         catch{
-                            print("No data")
+                            DispatchQueue.main.async {
+                                showErrorAlert = true
+                                alertMessage = "Произошли технические неполадки"
+                            }
                         }
                         
                     }else{
-                        print("Some error")
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     }
                 }
                 
@@ -187,7 +209,10 @@ struct ShareListView: View {
             
             
         } catch {
-            print("Some error")
+            DispatchQueue.main.async {
+                showErrorAlert = true
+                alertMessage = "Произошли технические неполадки"
+            }
         }
         
         
@@ -196,51 +221,58 @@ struct ShareListView: View {
     func shareListToServer(){
         do {
             let url = URL(string: "http://localhost:5211/lists/share_list")!
-            let userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId") ?? "")
-            let token = UserDefaults.standard.string(forKey: "Token")
             if forGroup == false{
                 var request = URLRequest(url: url)
                 request.httpMethod = "POST"
                 request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.addValue("Bearer " + (token ?? ""), forHTTPHeaderField: "Authorization")
-                let listModel = ListShareRequest(listId: listId, userOwnerId: userId!, newUserEmail: newUserEmail)
+                request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
+                let listModel = ListShareRequest(listId: listId, userOwnerId: userInfo.UserId, newUserEmail: newUserEmail)
                 let jsonData = try JSONEncoder().encode(listModel)
                 request.httpBody = jsonData
 
                 let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-                    if let error = error {
-                        showInternetErrorAlert = true
-                        print("Error: \(error)")
+                    if error != nil {
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     } else if data != nil {
                         if let httpResponse = response as? HTTPURLResponse{
-                            if httpResponse.statusCode == 200{
-                                showCommonErrorAlert = false
-                                showInternetErrorAlert = false
-                                showUserNotExistErrorAlert = false
-                            } else if httpResponse.statusCode == 404{
-                                showUserNotExistErrorAlert = true
-                            } else {
-                                showCommonErrorAlert = true
+                            if httpResponse.statusCode == 404{
+                                DispatchQueue.main.async {
+                                    showErrorAlert = true
+                                    alertMessage = "Такого пользователя не существует"
+                                }
+                            }else if httpResponse.statusCode != 200{
+                                DispatchQueue.main.async {
+                                    showErrorAlert = true
+                                    alertMessage = "Произошли технические неполадки"
+                                }
                             }
                         }
                     }else{
-                        print("Some error")
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     }
                 }
                 task.resume()
             }else{
                 var groupMembers: [GroupMember] = []
-                let urlGroupMembers = URL(string: "http://localhost:5211/groups/get_all_group_members?user_id=\(userId!.uuidString.lowercased())&group_id=\(selectedGroup.id.uuidString.lowercased())")!
+                let urlGroupMembers = URL(string: "http://localhost:5211/groups/get_all_group_members?user_id=\(userInfo.UserId.uuidString.lowercased())&group_id=\(selectedGroup.id.uuidString.lowercased())")!
 
                 var request = URLRequest(url: urlGroupMembers)
                 request.httpMethod = "GET"
                 request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-                request.addValue("Bearer " + (token!), forHTTPHeaderField: "Authorization")
+                request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
 
                 let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-                    if let error = error {
-                        showInternetErrorAlert = true
-                        print("Error: \(error)")
+                    if error != nil {
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     } else if let data = data {
                         do{
                             if let httpResponse = response as? HTTPURLResponse{
@@ -251,46 +283,60 @@ struct ShareListView: View {
                                         var request = URLRequest(url: url)
                                         request.httpMethod = "POST"
                                         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-                                        request.addValue("Bearer " + (token ?? ""), forHTTPHeaderField: "Authorization")
-                                        let listModel = ListShareRequest(listId: listId, userOwnerId: userId!, newUserEmail: groupMember.email)
+                                        request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
+                                        let listModel = ListShareRequest(listId: listId, userOwnerId: userInfo.UserId, newUserEmail: groupMember.email)
                                         let jsonData = try JSONEncoder().encode(listModel)
                                         request.httpBody = jsonData
                                         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-                                            if let error = error {
-                                                showInternetErrorAlert = true
-                                                print("Error: \(error)")
+                                            if error != nil {
+                                                DispatchQueue.main.async {
+                                                    showErrorAlert = true
+                                                    alertMessage = "Произошли технические неполадки"
+                                                }
                                             } else if data != nil {
                                                 if let httpResponse = response as? HTTPURLResponse{
-                                                    if httpResponse.statusCode == 200{
-                                                        showCommonErrorAlert = false
-                                                        showInternetErrorAlert = false
-                                                        showUserNotExistErrorAlert = false
-                                                    } else if httpResponse.statusCode == 404{
-                                                        showUserNotExistErrorAlert = true
-                                                    } else {
-                                                        showCommonErrorAlert = true
+                                                    if httpResponse.statusCode == 404{
+                                                        DispatchQueue.main.async {
+                                                            showErrorAlert = true
+                                                            alertMessage = "Такого пользователя не существует"
+                                                        }
+                                                    } else if httpResponse.statusCode != 200{
+                                                        DispatchQueue.main.async {
+                                                            showErrorAlert = true
+                                                            alertMessage = "Произошли технические неполадки"
+                                                        }
                                                     }
                                                 }
                                             }else{
-                                                print("Some error")
+                                                DispatchQueue.main.async {
+                                                    showErrorAlert = true
+                                                    alertMessage = "Произошли технические неполадки"
+                                                }
                                             }
                                         }
                                         task.resume()
                                     }
-                                    showCommonErrorAlert = false
-                                    showInternetErrorAlert = false
+                                    self.presentationMode.wrappedValue.dismiss()
                                 } else {
-                                    print("Bad status code")
-                                    showCommonErrorAlert = true
+                                    DispatchQueue.main.async {
+                                        showErrorAlert = true
+                                        alertMessage = "Произошли технические неполадки"
+                                    }
                                 }
                             }
                         }
                         catch{
-                            print("No data")
+                            DispatchQueue.main.async {
+                                showErrorAlert = true
+                                alertMessage = "Произошли технические неполадки"
+                            }
                         }
                         
                     }else{
-                        print("Some error")
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     }
                 }
                 
@@ -300,24 +346,29 @@ struct ShareListView: View {
             }
             
         } catch {
-            print("Some error")
+            DispatchQueue.main.async {
+                showErrorAlert = true
+                alertMessage = "Произошли технические неполадки"
+            }
         }
         
         
     }
     
     func getAllUserGroups(){
-        let url = URL(string: "http://localhost:5211/groups/get_all_user_groups?user_id=\(userId.uuidString.lowercased())")!
+        let url = URL(string: "http://localhost:5211/groups/get_all_user_groups?user_id=\(userInfo.UserId.uuidString.lowercased())")!
 
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
+        request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
 
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
+            if error != nil {
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             } else if let data = data {
                 do{
                     if let httpResponse = response as? HTTPURLResponse{
@@ -326,24 +377,31 @@ struct ShareListView: View {
 
                             groupModel.groups = try decoder.decode([Group].self, from: data)
                             groupModel.reload()
-                            showUserNotExistErrorAlert = false
-                            showCommonErrorAlert = false
-                            showInternetErrorAlert = false
                         } else if httpResponse.statusCode == 404{
-                            print("Такого пользователя не существует")
-                            showUserNotExistErrorAlert = true
+                            DispatchQueue.main.async {
+                                showErrorAlert = true
+                                alertMessage = "Такого пользователя не существует"
+                            }
                         } else {
-                            print("Bad status code")
-                            showCommonErrorAlert = true
+                            DispatchQueue.main.async {
+                                showErrorAlert = true
+                                alertMessage = "Произошли технические неполадки"
+                            }
                         }
                     }
                 }
                 catch{
-                    print("No data")
+                    DispatchQueue.main.async {
+                        showErrorAlert = true
+                        alertMessage = "Произошли технические неполадки"
+                    }
                 }
                 
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             }
         }
         

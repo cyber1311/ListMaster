@@ -9,12 +9,10 @@ import Foundation
 import SwiftUI
 
 struct DeleteUserView: View {
-    @State private var showInternetErrorAlert = false
-    @State private var showCommonErrorAlert = false
-    @State private var showPasswordErrorAlert = false
+    @State private var showErrorAlert = false
+    @State private var alertMessage = ""
     @State private var conditionIsMet = false
-    
-    @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
+    @State var userInfo: UserInfo
     @State private var password: String = ""
   
     var body: some View {
@@ -27,22 +25,20 @@ struct DeleteUserView: View {
                 HStack{
                     Spacer()
                     Button("Удалить аккаунт") {
-                        if let userPassword = UserDefaults.standard.object(forKey: "UserPassword") as? String {
-                            if password == userPassword{
-                                deleteUser()
-                                UserDefaults.standard.removeObject(forKey: "isUserLoggedIn")
-                                UserDefaults.standard.removeObject(forKey: "UserId")
-                                UserDefaults.standard.removeObject(forKey: "UserName")
-                                UserDefaults.standard.removeObject(forKey: "UserPassword")
-                                UserDefaults.standard.removeObject(forKey: "UserEmail")
-                                UserDefaults.standard.removeObject(forKey: "Token")
-                                UserDefaults.standard.removeObject(forKey: "TokenExpiresAt")
-                                conditionIsMet = true
-                                
-                            }else{
-                                showPasswordErrorAlert = true
-                            }
+                        if password == userInfo.UserPassword{
+                            deleteUser()
+                            UserDefaults.standard.removeObject(forKey: "isUserLoggedIn")
+                            UserDefaults.standard.removeObject(forKey: "UserId")
+                            UserDefaults.standard.removeObject(forKey: "UserName")
+                            UserDefaults.standard.removeObject(forKey: "UserPassword")
+                            UserDefaults.standard.removeObject(forKey: "UserEmail")
+                            UserDefaults.standard.removeObject(forKey: "Token")
+                            UserDefaults.standard.removeObject(forKey: "TokenExpiresAt")
+                            conditionIsMet = true
                             
+                        }else{
+                            showErrorAlert = true
+                            alertMessage = "Пароль неверен"
                         }
                     }
                     .padding()
@@ -53,14 +49,8 @@ struct DeleteUserView: View {
                 }
             }
         }
-        .alert(isPresented: $showInternetErrorAlert) {
-            Alert(title: Text("Ошибка"), message: Text("Проверьте подключение к интернету"), dismissButton: .default(Text("OK")))
-        }
-        .alert(isPresented: $showCommonErrorAlert) {
-            Alert(title: Text("Ошибка"), message: Text("Произошли технические неполадки"), dismissButton: .default(Text("OK")))
-        }
-        .alert(isPresented: $showPasswordErrorAlert) {
-            Alert(title: Text("Ошибка"), message: Text(" Пароль неверен"), dismissButton: .default(Text("OK")))
+        .alert(isPresented: $showErrorAlert) {
+            Alert(title: Text("Ошибка"), message: Text(alertMessage), dismissButton: .default(Text("OK")))
         }
         .navigationTitle("Профиль")
         .fullScreenCover(isPresented: $conditionIsMet) {
@@ -80,21 +70,20 @@ struct DeleteUserView: View {
         request.addValue("Bearer " + (token), forHTTPHeaderField: "Authorization")
 
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                showInternetErrorAlert = true
-                print("Error: \(error)")
-            } else if data != nil {
+            if data != nil {
                 if let httpResponse = response as? HTTPURLResponse{
-                    if httpResponse.statusCode == 200{
-                        showCommonErrorAlert = false
-                        showInternetErrorAlert = false
-                    } else {
-                        print("Some error \(httpResponse.statusCode)")
-                        showCommonErrorAlert = true
+                    if httpResponse.statusCode != 200{
+                        DispatchQueue.main.async {
+                            showErrorAlert = true
+                            alertMessage = "Произошли технические неполадки"
+                        }
                     }
                 }
             }else{
-                print("Some error")
+                DispatchQueue.main.async {
+                    showErrorAlert = true
+                    alertMessage = "Произошли технические неполадки"
+                }
             }
         }
         

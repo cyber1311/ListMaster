@@ -11,7 +11,7 @@ import SwiftUI
 struct LoginView: View {
     @State private var userEmail = ""
     @State private var userPassword = ""
-    @State private var conditionIsMet = false
+    @State private var goToMainView = false
     @State private var showErrorAlert = false
     @State private var alertMessage = ""
 
@@ -25,20 +25,35 @@ struct LoginView: View {
                 .padding()
                 .textFieldStyle(RoundedBorderTextFieldStyle())
             
+//            NavigationLink(destination:  MainScreenView(), isActive: $goToMainView){
+//                Button(action:{
+//                    
+//                    loginUserForServer()
+//                    
+//                }) {
+//                    Text("Войти")
+//                }
+//            }
+            
+            
             Button(action:{
+                
                 loginUserForServer()
                 
             }) {
                 Text("Войти")
-            }
-            .fullScreenCover(isPresented: $conditionIsMet) {
-                MainScreenView()
             }
             .padding()
             .background(Color.blue)
             .foregroundColor(.white)
             .cornerRadius(10)
             .padding()
+            .fullScreenCover(isPresented: $goToMainView) {
+                NavigationView{
+                    MainScreenView()
+                }
+                
+            }
             
             NavigationLink(destination: RegistrationView()) {
                 Text("Зарегистрироваться")
@@ -61,13 +76,7 @@ struct LoginView: View {
         request.addValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
-            if let error = error {
-                DispatchQueue.main.async {
-                    self.alertMessage = "Проверьте подключение к интернету"
-                    self.showErrorAlert = true
-                    print("Error: \(error)")
-                }
-            } else if let data = data {
+            if let data = data {
                 do{
                     if let httpResponse = response as? HTTPURLResponse{
                         if httpResponse.statusCode == 200{
@@ -76,6 +85,13 @@ struct LoginView: View {
                             let dateFormatter = DateFormatter()
                             dateFormatter.dateFormat = "dd.MM.yyyy HH:mm:ss"
                             let expiresAtDate = dateFormatter.date(from: loginResponse.expiresAt)
+                            UserDefaults.standard.set(true, forKey: "isUserLoggedIn")
+                            UserDefaults.standard.set(loginResponse.id.uuidString, forKey: "UserId")
+                            UserDefaults.standard.set(loginResponse.name, forKey: "UserName")
+                            UserDefaults.standard.set(userPassword, forKey: "UserPassword")
+                            UserDefaults.standard.set(userEmail, forKey: "UserEmail")
+                            UserDefaults.standard.set(loginResponse.token, forKey: "Token")
+                            UserDefaults.standard.set(expiresAtDate, forKey: "TokenExpiresAt")
                             DispatchQueue.main.async {
                                 UserDefaults.standard.set(true, forKey: "isUserLoggedIn")
                                 UserDefaults.standard.set(loginResponse.id.uuidString, forKey: "UserId")
@@ -84,8 +100,9 @@ struct LoginView: View {
                                 UserDefaults.standard.set(userEmail, forKey: "UserEmail")
                                 UserDefaults.standard.set(loginResponse.token, forKey: "Token")
                                 UserDefaults.standard.set(expiresAtDate, forKey: "TokenExpiresAt")
-                                conditionIsMet = true
+                                goToMainView = true
                             }
+                            
                         } else if httpResponse.statusCode == 404{
                             DispatchQueue.main.async {
                                 self.alertMessage = "Неверная почта или пароль"
@@ -93,7 +110,7 @@ struct LoginView: View {
                             }
                         } else {
                             DispatchQueue.main.async {
-                                self.alertMessage = "Произошли технические неполадки. Попробуйте еще раз ввести данные"
+                                self.alertMessage = "Произошли технические неполадки"
                                 self.showErrorAlert = true
                             }
                         }
@@ -101,13 +118,13 @@ struct LoginView: View {
                 }
                 catch{
                     DispatchQueue.main.async {
-                        self.alertMessage = "Произошли технические неполадки. Попробуйте еще раз ввести данные"
+                        self.alertMessage = "Произошли технические неполадки"
                         self.showErrorAlert = true
                     }
                 }
             }else{
                 DispatchQueue.main.async {
-                    self.alertMessage = "Произошли технические неполадки. Попробуйте еще раз ввести данные"
+                    self.alertMessage = "Произошли технические неполадки"
                     self.showErrorAlert = true
                 }
             }

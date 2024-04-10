@@ -11,13 +11,14 @@ import SwiftUI
 struct ChangeNameView: View {
     @State private var showInternetErrorAlert = false
     @State private var showCommonErrorAlert = false
+    @State var userInfo: UserInfo
     
     @Environment(\.presentationMode) var presentationMode: Binding<PresentationMode>
     @State private var newName: String = ""
   
     var body: some View {
         Form {
-            Section(header: Text("Изменение имя")) {
+            Section(header: Text("Изменение имени")) {
                 TextField("Новое имя", text: $newName)
             }
             
@@ -50,18 +51,13 @@ struct ChangeNameView: View {
     
     func updateNameForServer(){
         do{
-            let userId = UUID(uuidString: UserDefaults.standard.string(forKey: "UserId") ?? "")
-            
-            let userUpdateNameRequest = UserUpdateNameRequest(id: userId!, name: newName)
-            
-            let token = UserDefaults.standard.string(forKey: "Token")
-            
+            let userUpdateNameRequest = UserUpdateNameRequest(id: userInfo.UserId, name: newName)
             let url = URL(string: "http://localhost:5211/users/update_user_name")!
 
             var request = URLRequest(url: url)
             request.httpMethod = "PUT"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.addValue("Bearer " + (token ?? ""), forHTTPHeaderField: "Authorization")
+            request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
             
             let jsonData = try JSONEncoder().encode(userUpdateNameRequest)
             request.httpBody = jsonData
