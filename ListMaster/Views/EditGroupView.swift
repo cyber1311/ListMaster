@@ -269,7 +269,7 @@ struct EditGroupView: View {
             request.httpMethod = "POST"
             request.addValue("application/json", forHTTPHeaderField: "Content-Type")
             request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
-            let groupMemberAddRequest = GroupMemberAddRequest(group_id: group.id, user_id: userInfo.UserId, user_to_add_email: newUserEmail)
+            let groupMemberAddRequest = GroupMemberAddRequest(group_id: group.id, user_id: userInfo.UserId, user_to_add_email: newUserEmail.lowercased())
             let jsonData = try JSONEncoder().encode(groupMemberAddRequest)
             request.httpBody = jsonData
             

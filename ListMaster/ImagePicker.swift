@@ -31,11 +31,15 @@ struct ImagePicker: UIViewControllerRepresentable {
                             self.parent.image = uiImage
                             self.parent.saveImageToAppDirectory(uiImage)
                             self.parent.isPresented = false
+                            self.parent.presentationMode.wrappedValue.dismiss()
                         }
                     }
                 }
             }
+        }
 
+        func pickerDidCancel(_ picker: PHPickerViewController) {
+            self.parent.isPresented = false
             self.parent.presentationMode.wrappedValue.dismiss()
         }
     }

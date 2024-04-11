@@ -121,10 +121,10 @@ struct ListDetailView: View {
         .toolbar {
             ToolbarItem {
                 EditButton()
-            }
-                        
+            }     
         }
         .onAppear{
+            getList ()
             listModel.reload()
         }
         .onChange(of: hideDone) { newValue in

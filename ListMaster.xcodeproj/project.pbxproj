@@ -30,6 +30,7 @@
 		79CE33A62B964C7C008BF03D /* ListAddRequst.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79CE33A52B964C7C008BF03D /* ListAddRequst.swift */; };
 		79CE33AA2B9B30B5008BF03D /* ListUpdateElementsRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79CE33A92B9B30B5008BF03D /* ListUpdateElementsRequest.swift */; };
 		79CE33AC2B9B5F35008BF03D /* ListElement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79CE33AB2B9B5F35008BF03D /* ListElement.swift */; };
+		79DB2CE32BC74D6B00E3729F /* VerificationResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79DB2CE22BC74D6B00E3729F /* VerificationResponse.swift */; };
 		79E5F6642BAE4C46000CE30E /* ListResponse.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E5F6632BAE4C46000CE30E /* ListResponse.swift */; };
 		79E5F6682BB186CA000CE30E /* ChangePasswordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E5F6672BB186CA000CE30E /* ChangePasswordView.swift */; };
 		79E5F66A2BB18A86000CE30E /* UserUpdatePasswordRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E5F6692BB18A86000CE30E /* UserUpdatePasswordRequest.swift */; };
@@ -79,6 +80,7 @@
 		79CE33A52B964C7C008BF03D /* ListAddRequst.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListAddRequst.swift; sourceTree = "<group>"; };
 		79CE33A92B9B30B5008BF03D /* ListUpdateElementsRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListUpdateElementsRequest.swift; sourceTree = "<group>"; };
 		79CE33AB2B9B5F35008BF03D /* ListElement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListElement.swift; sourceTree = "<group>"; };
+		79DB2CE22BC74D6B00E3729F /* VerificationResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VerificationResponse.swift; sourceTree = "<group>"; };
 		79E5F6632BAE4C46000CE30E /* ListResponse.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListResponse.swift; sourceTree = "<group>"; };
 		79E5F6672BB186CA000CE30E /* ChangePasswordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChangePasswordView.swift; sourceTree = "<group>"; };
 		79E5F6692BB18A86000CE30E /* UserUpdatePasswordRequest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserUpdatePasswordRequest.swift; sourceTree = "<group>"; };
@@ -188,6 +190,7 @@
 				79E5F6752BB9BDEA000CE30E /* ListModel.swift */,
 				79E5F6972BBB83C8000CE30E /* GroupModel.swift */,
 				79E5F6992BBB9145000CE30E /* GroupMember.swift */,
+				79DB2CE22BC74D6B00E3729F /* VerificationResponse.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -313,6 +316,7 @@
 				79E5F6642BAE4C46000CE30E /* ListResponse.swift in Sources */,
 				79E5F68E2BBB7774000CE30E /* GroupMemberAddRequest.swift in Sources */,
 				79E5F6702BB18FB8000CE30E /* ChangeEmailView.swift in Sources */,
+				79DB2CE32BC74D6B00E3729F /* VerificationResponse.swift in Sources */,
 				790AE2342B7663AC007B9E45 /* MainView.swift in Sources */,
 				79E5F66C2BB18E4D000CE30E /* ChangeNameView.swift in Sources */,
 				79E5F6962BBB8117000CE30E /* AddGroupView.swift in Sources */,

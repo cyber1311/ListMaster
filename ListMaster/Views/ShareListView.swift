@@ -86,7 +86,7 @@ struct ShareListView: View {
                 request.httpMethod = "POST"
                 request.addValue("application/json", forHTTPHeaderField: "Content-Type")
                 request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
-                let listModel = ListCopyRequest(listId: listId, newListId: UUID(), userOwnerId: userInfo.UserId, newUserEmail: newUserEmail)
+                let listModel = ListCopyRequest(listId: listId, newListId: UUID(), userOwnerId: userInfo.UserId, newUserEmail: newUserEmail.lowercased())
                 let jsonData = try JSONEncoder().encode(listModel)
                 request.httpBody = jsonData
 
@@ -118,6 +118,7 @@ struct ShareListView: View {
                     }
                 }
                 task.resume()
+                self.presentationMode.wrappedValue.dismiss()
             }else{
                 var groupMembers: [GroupMember] = []
                 let urlGroupMembers = URL(string: "http://localhost:5211/groups/get_all_group_members?user_id=\(userInfo.UserId.uuidString.lowercased())&group_id=\(selectedGroup.id.uuidString.lowercased())")!
@@ -226,7 +227,7 @@ struct ShareListView: View {
                 request.httpMethod = "POST"
                 request.addValue("application/json", forHTTPHeaderField: "Content-Type")
                 request.addValue("Bearer " + (userInfo.Token), forHTTPHeaderField: "Authorization")
-                let listModel = ListShareRequest(listId: listId, userOwnerId: userInfo.UserId, newUserEmail: newUserEmail)
+                let listModel = ListShareRequest(listId: listId, userOwnerId: userInfo.UserId, newUserEmail: newUserEmail.lowercased())
                 let jsonData = try JSONEncoder().encode(listModel)
                 request.httpBody = jsonData
 
@@ -258,6 +259,7 @@ struct ShareListView: View {
                     }
                 }
                 task.resume()
+                self.presentationMode.wrappedValue.dismiss()
             }else{
                 var groupMembers: [GroupMember] = []
                 let urlGroupMembers = URL(string: "http://localhost:5211/groups/get_all_group_members?user_id=\(userInfo.UserId.uuidString.lowercased())&group_id=\(selectedGroup.id.uuidString.lowercased())")!

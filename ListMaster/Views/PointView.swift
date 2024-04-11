@@ -64,6 +64,9 @@ struct PointView: View {
                         DatePicker("Напомнить:", selection: $listElementReminder, in: Date()...)
                        
                         Button(action: {
+                            if listElement.Reminder != nil{
+                                cancelNotification(identifier: "reminder_\(listElement.Id)")
+                            }
                             isReminderPickerOn = false
                             listElement.Reminder = nil
                         }, label: {
@@ -103,6 +106,9 @@ struct PointView: View {
                     VStack(alignment: .trailing){
                             DatePicker("Дедлайн:", selection: $listElementDeadline, in: Date()...)
                             Button(action: {
+                                if listElement.Deadline != nil{
+                                    cancelNotification(identifier: "deadline_\(listElement.Id)")
+                                }
                                 isDeadlinePickerOn = false
                                 listElement.Deadline = nil
                             }, label: {
@@ -116,11 +122,12 @@ struct PointView: View {
                 }
             
                 if selectedImage == nil && listElement.ImagePath == nil{
-                    Button("Добавить изображение"){
-                        isImagePickerOn = true
-                    }
                     if isImagePickerOn {
                         ImagePicker(isPresented: $isImagePickerOn, image: $selectedImage, imagePath: $listElementImagePath)
+                    }else{
+                        Button("Добавить изображение"){
+                            isImagePickerOn = true
+                        }
                     }
                 }else{
                     if listElement.ImagePath != nil{
@@ -207,14 +214,14 @@ struct PointView: View {
                         if isDeadlinePickerOn {
                             listElement.Deadline = listElementDeadline
                         }
-                        if isDeadlinePickerOn == false && listElement.Deadline != nil && listElementDeadline.compare(listElement.Deadline!) == .orderedDescending {
+                        if isDeadlinePickerOn == false && listElement.Deadline != nil {
                             listElement.Deadline = listElementDeadline
                         }
                         
                         if isReminderPickerOn {
                             listElement.Reminder = listElementReminder
                         }
-                        if isReminderPickerOn == false && listElement.Reminder != nil && listElementReminder.compare(listElement.Reminder!) == .orderedDescending {
+                        if isReminderPickerOn == false && listElement.Reminder != nil  {
                             listElement.Reminder = listElementReminder
                         }
                         
@@ -223,10 +230,10 @@ struct PointView: View {
                         listElement.IsDone = isCompleted
                         
                         if let deadline = listElement.Deadline {
-                            scheduleNotification(for: deadline, withTitle: "Дедлайн", andBody: "Задача: '\(listElement.Title)'")
+                            scheduleNotification(time: deadline, title: "Дедлайн", body: "Задача: '\(listElement.Title)'", identifier: "deadline_\(listElement.Id)")
                         }
                         if let reminder = listElement.Reminder {
-                            scheduleNotification(for: reminder, withTitle: "Напоминание", andBody: "Задача: '\(listElement.Title)'")
+                            scheduleNotification(time: reminder, title: "Напоминание", body: "Задача: '\(listElement.Title)'", identifier: "reminder_\(listElement.Id)")
                         }
                         updateElementsForServer()
                         if selectedImage != nil &&  listElement.ImagePath != nil{
@@ -319,7 +326,7 @@ struct PointView: View {
         return formatter.string(from: date)
     }
     
-    func scheduleNotification(for deadline: Date, withTitle title: String, andBody body: String) {
+    func scheduleNotification(time: Date, title: String, body: String, identifier: String) {
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             if settings.authorizationStatus == .authorized{
                 let content = UNMutableNotificationContent()
@@ -327,10 +334,10 @@ struct PointView: View {
                 content.body = body
                 content.sound = UNNotificationSound.default
 
-                let triggerDate = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: deadline)
+                let triggerDate = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: time)
                 let trigger = UNCalendarNotificationTrigger(dateMatching: triggerDate, repeats: false)
 
-                let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+                let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
 
                 UNUserNotificationCenter.current().add(request) { error in
                     if let error = error {
@@ -343,6 +350,10 @@ struct PointView: View {
                 
         }
         
+    }
+    
+    func cancelNotification(identifier: String) {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [identifier])
     }
     
     func requestNotificationAuthorization() {

@@ -27,7 +27,7 @@ struct ChangeEmailView: View {
                     Spacer()
                     Button("Сохранить") {
                         updateEmailForServer()
-                        UserDefaults.standard.set(newEmail, forKey: "UserEmail")
+                        UserDefaults.standard.set(newEmail.lowercased(), forKey: "UserEmail")
                         self.presentationMode.wrappedValue.dismiss()
                         
                     }
@@ -51,7 +51,7 @@ struct ChangeEmailView: View {
     
     func updateEmailForServer(){
         do{
-            let userUpdateEmailRequest = UserUpdateEmailRequest(id: userInfo.UserId, email: newEmail)
+            let userUpdateEmailRequest = UserUpdateEmailRequest(id: userInfo.UserId, email: newEmail.lowercased())
             let url = URL(string: "http://localhost:5211/users/update_user_email")!
 
             var request = URLRequest(url: url)
