@@ -37,11 +37,6 @@ struct ImagePicker: UIViewControllerRepresentable {
                 }
             }
         }
-
-        func pickerDidCancel(_ picker: PHPickerViewController) {
-            self.parent.isPresented = false
-            self.parent.presentationMode.wrappedValue.dismiss()
-        }
     }
 
     func saveImageToAppDirectory(_ image: UIImage) {

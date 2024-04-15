@@ -93,6 +93,7 @@ struct PointView: View {
                         }
                         Button(action: {
                             listElement.Deadline = nil
+                            listModel.reload()
                         }, label: {
                             HStack{
                                 Text("Удалить").foregroundColor(.red)

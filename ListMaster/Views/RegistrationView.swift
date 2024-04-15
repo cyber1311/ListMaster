@@ -76,7 +76,7 @@ struct RegistrationView: View {
     }
     
     func validateEmail(){
-        let url = URL(string: "http://localhost:5211/users/validate_email?email=\(userEmail.lowercased())")!
+        let url = URL(string: "http://localhost:5211/users/email_verification?email=\(userEmail.lowercased())")!
         
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
